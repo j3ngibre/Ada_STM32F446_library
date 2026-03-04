@@ -5,13 +5,13 @@ package I2C is
    type Uint8 is mod 2**8;
    type Uint16 is mod 2**16;
    type Uint32 is mod 2**32;
-
+   type Uint8_Array is array (Positive range <>) of Uint8;
 
    procedure Initialize;
 
 
    function I2C_WriteRead (SlaveAddr : Uint8;
-                             WriteData : Uint8;
+                             Write_Data : Uint8;
                              Read_Data : out Uint8) return Boolean;
 
    function I2C_Write  (SlaveAddr : Uint8;
@@ -22,12 +22,16 @@ package I2C is
 
 
    function I2C_WriteBuffer (SlaveAddr : Uint8;
-                               Buffer : Uint8;
+                               Buffer : Uint8_Array;
                                Len : Uint8) return Boolean;
 
    function I2C_ReadBuffer (SlaveAddr : Uint8;
-                              Buffer : out Uint8;
+                              Buffer : out Uint8_Array;
                               Len : Uint8) return Boolean;
+
+function Wait_Bus return Boolean;
+function Wait_Flag (Flag_Mask : Uint32; Timeout_MS : Positive) return Boolean;
+procedure Clear_Errors;
 
 private
 
@@ -38,17 +42,17 @@ private
 
    --Offsets de registros I2C
 
-   I2C_CR1   : constant := 16#00#;  -- Control Register 1
-   I2C_CR2   : constant := 16#04#;  -- Control Register 2
+   I2C_CR1A   : constant := 16#00#;  -- Control Register 1
+   I2C_CR2A   : constant := 16#04#;  -- Control Register 2
    I2C_OAR1  : constant := 16#08#;  --+address propio1
    I2C_OAR2 : constant := 16#0C#;  --adress prop 2
    I2C_TIMING : constant := 16#10#;  --registro para timing
    I2C_TIMEOUT : constant := 16#14#;  --registro de tiemout
-   I2C_ISR  : constant := 16#18#;  -- interrupcion y stauts
-   I2C_ICR  : constant := 16#1C#;  -- clear interrupt
+   I2C_ISRA  : constant := 16#18#;  -- interrupcion y stauts
+   I2C_ICRA  : constant := 16#1C#;  -- clear interrupt
    I2C_PEC  : constant := 16#20#;  -- Packet Error Checking Register cosa nueva opcional que sirve para entornos con ruido genera como un crc para checkerar integridad
-   I2C_RXD : constant := 16#24#;  -- registro de recepcion
-   I2C_TXD  : constant := 16#28#;  -- transmisión
+   I2C_RXDA : constant := 16#24#;  -- registro de recepcion
+   I2C_TXDA  : constant := 16#28#;  -- transmisión
 
    -- Bits del registro CR1
 

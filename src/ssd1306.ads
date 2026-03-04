@@ -1,53 +1,50 @@
-
 with I2C;
-use I2c;
+
 package SSD1306 is
 
    -- Dirección 
-   SSD1306_ADDR : constant I2C.Uint8 := 16#3C#;  -- 0x3C (alternativa 0x3D)
-   
-   -- Dimensiones del display
+   SSD1306_ADDR : constant I2C.Uint8 := 16#3C#;  --  0x3D)
+
+   -- Dimensiones 
    WIDTH  : constant := 128;
    HEIGHT : constant := 64;
    PAGES  : constant := 8;  -- 64/8 = 8 páginas
 
-   -- Inicialización del display
+  
    procedure Init;
-   
+
    -- Comandos básicos
    procedure Clear_Display;
    procedure Display_On;
    procedure Display_Off;
    procedure Set_Contrast (Value : I2C.Uint8);
    procedure Set_Inverse (Inverse : Boolean);
-   
-   -- Dibujar píxeles
+
+   -- Dibujar px
    procedure Draw_Pixel (X : I2C.Uint8; Y : I2C.Uint8; b : Boolean);
    procedure Update_Display;
-   
+
    -- Texto
    procedure Put_Char (X : I2C.Uint8; Y : I2C.Uint8; C : Character);
    procedure Put_String (X : I2C.Uint8; Y : I2C.Uint8; S : String);
-   
-   -- Formas básicas
+
+   -- Formas 
    procedure Draw_Line (X0, Y0, X1, Y1 : I2C.Uint8; b : Boolean);
    procedure Draw_Rect (X, Y, W, H : I2C.Uint8; b : Boolean);
    procedure Fill_Rect (X, Y, W, H : I2C.Uint8; b : Boolean);
 
 private
 
-   -- Buffer de pantalla 
+   -- Buffer
    type Display_Buffer is array (0 .. 1023) of I2C.Uint8;
    Frame_Buffer : Display_Buffer := (others => 0);
+
    
-   -- Enviar comando 
    procedure Write_Command (Cmd : I2C.Uint8);
-   
-   -- Enviar datos 
    procedure Write_Data (Data : I2C.Uint8);
-   procedure Write_Data_Buffer (Data : Display_Buffer; Len : I2C.Uint8);
-   
-   -- Comandos controlador a lo mejor no funcionan
+   procedure Write_Data_Buffer (Data : Display_Buffer; Len : Natural);
+
+   -- Comandos 
    SSD1306_SETCONTRAST     : constant I2C.Uint8 := 16#81#;
    SSD1306_DISPLAYALLON_RESUME : constant I2C.Uint8 := 16#A4#;
    SSD1306_DISPLAYALLON    : constant I2C.Uint8 := 16#A5#;
@@ -72,11 +69,11 @@ private
    SSD1306_SEGREMAP        : constant I2C.Uint8 := 16#A0#;
    SSD1306_CHARGEPUMP      : constant I2C.Uint8 := 16#8D#;
 
-   -- Fuente simple 5x7 para caracteres
+   -- Fuente
    type Font_Type is array (Character range ' ' .. '~') of I2C.Uint8;
    Font : constant Font_Type := (
       ' ' => 16#00#, '!' => 16#5E#, '"' => 16#06#, '#' => 16#6C#,
-      '$' => 16#7C#, '%' => 16#52#, '&' => 16#FE#, ''' => 16#06#, -- auqi me da error por 
+      '$' => 16#7C#, '%' => 16#52#, '&' => 16#FE#, ''' => 16#06#,
       '(' => 16#38#, ')' => 16#40#, '*' => 16#7E#, '+' => 16#0C#,
       ',' => 16#40#, '-' => 16#04#, '.' => 16#40#, '/' => 16#22#,
       '0' => 16#7E#, '1' => 16#30#, '2' => 16#6D#, '3' => 16#79#,

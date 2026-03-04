@@ -5,7 +5,6 @@
 with System;
 with Ada.Real_Time; use Ada.Real_Time;
 
-
 package body I2C is
 
     -- Registros mapeados en memoria
@@ -40,11 +39,11 @@ package body I2C is
     -- Registros I2C
     I2C_CR1 : Uint32 with
     Volatile,
-    Address => System'To_Address (I2C_Base + I2C_CR1);
+    Address => System'To_Address (I2C_Base + I2C_CR1A);
 
     I2C_CR2 : Uint32 with
     Volatile,
-    Address => System'To_Address (I2C_Base + I2C_CR2);
+    Address => System'To_Address (I2C_Base + I2C_CR2A);
 
     I2C_TIMINGR : Uint32 with
     Volatile,
@@ -52,30 +51,23 @@ package body I2C is
 
     I2C_ISR : Uint32 with
     Volatile,
-    Address => System'To_Address (I2C_Base + I2C_ISR);
+    Address => System'To_Address (I2C_Base + I2C_ISRA);
 
     I2C_ICR : Uint32 with
     Volatile,
-    Address => System'To_Address (I2C_Base + I2C_ICR);
+    Address => System'To_Address (I2C_Base + I2C_ICRA);
 
     I2C_RXD : Uint32 with
     Volatile,
-    Address => System'To_Address (I2C_Base + I2C_RXD);
+    Address => System'To_Address (I2C_Base + I2C_RXDA);
 
     I2C_TXD : Uint32 with
     Volatile,
-    Address => System'To_Address (I2C_Base + I2C_TXD);
-
-
-
-
-
-  
+    Address => System'To_Address (I2C_Base + I2C_TXDA);
 
     -- Inicialización I2C a 100 kHz modo normal
     procedure Initialize is
     begin
-
         RCC_AHB1ENR := RCC_AHB1ENR or (2**1);
 
         RCC_APB1ENR := RCC_APB1ENR or (2**21);
@@ -95,261 +87,238 @@ package body I2C is
         GPIOB_MODER := GPIOB_MODER and not (3 * 2**(SDA_Pin * 2));
         GPIOB_MODER := GPIOB_MODER or (2 * 2**(SDA_Pin * 2));
 
-       --open drain hay que meter pullp
+        --open drain hay que meter pullp
         GPIOB_OTYPER := GPIOB_OTYPER or (2**SCL_Pin);
         GPIOB_OTYPER := GPIOB_OTYPER or (2**SDA_Pin);
 
         GPIOB_PUPDR := GPIOB_PUPDR or (1 * 2**(SCL_Pin * 2));--los pull
         GPIOB_PUPDR := GPIOB_PUPDR or (1 * 2**(SDA_Pin * 2));
 
-
-        -- Para 100 kHz: PRESC=1, SCLL=0x79, SCLH=0x4B, SDADEL=0x2, SCLDEL=0x4 tienes que calcular el valor , haré programita para estas cosas de forma rpida
-        I2C_TIMING := 16#00207A4B#;
-
+        -- Para 100 kHz: PRESC=1, SCLL=0x79, SCLH=0x4B, SDADEL=0x2, SCLDEL=0x4
+        I2C_TIMINGR := 16#00207A4B#;
 
         I2C_CR1 := I2C_CR1 or (2**I2C_CR1_PE);
 
         delay(0.01);
     end Initialize;
 
+    -- Select no va
+    function Wait_Bus return Boolean is
+        Deadline : constant Time := Clock + Milliseconds (100);
+    begin
+        while (I2C_ISR and (2**I2C_ISR_BUSY)) /= 0 loop
+            delay 0.001;  -- Pequeña pausa para no saturar
+            if Clock > Deadline then
+                return False;
+            end if;
+        end loop;
+        return True;
+    end Wait_Bus;
 
+    function Wait_Flag (Flag_Mask : Uint32; Timeout_MS : Positive) return Boolean is
+        Deadline : constant Time := Clock + Milliseconds (Timeout_MS);
+    begin
+        while (I2C_ISR and Flag_Mask) = 0 loop
+            if (I2C_ISR and (2**I2C_ISR_NACKF)) /= 0 then
+                Clear_Errors;
+                return False;
+            end if;
+            if Clock > Deadline then
+                return False;
+            end if;
+            delay 0.0001;  -- Pequeña pausa
+        end loop;
+        return True;
+    end Wait_Flag;
 
-    -- es una espera ,  hacerlo con un select
-  function waitBus return Boolean is
-    Deadline : constant Time := clock + milliseconds (100);
-begin
-    while (I2C_ISR and (2**I2C_ISR_BUSY)) /= 0 loop
-        select
-            delay until Deadline;
-            return False; 
-        then abort
-            delay 0.001;  
-        end select;
-    end loop;
-    return True;
-end waitBus;
-
-
-
-   function WaitFlag (Flag_Mask : Uint32; Timeout_MS : Positive) return Boolean is
-      Deadline : constant Time := Clock + Milliseconds (Timeout_MS);
-   begin
-      while (I2C_ISR and Flag_Mask) = 0 loop
-         if (I2C_ISR and (2**I2C_ISR_NACKF)) /= 0 then
-            Clear_Errors;
-            return False;
-         end if;
-         if Clock > Deadline then
-            return False;
-         end if;
-      end loop;
-      return True;
-   end WaitFlag;
-    
-
-    procedure ClearErrors is 
+    procedure Clear_Errors is
     begin
         I2C_ICR := I2C_ICR or (2**I2C_ISR_NACKF);
         I2C_ICR := I2C_ICR or (2**I2C_ISR_STOPF);
         I2C_ICR := I2C_ICR or (2**I2C_ISR_BERR);
         I2C_ICR := I2C_ICR or (2**I2C_ISR_ARLO);
         I2C_ICR := I2C_ICR or (2**I2C_ISR_OVR);
-    end ClearErrors;
+    end Clear_Errors;
 
+    function I2C_Write (SlaveAddr : Uint8; Data : Uint8) return Boolean is
+    begin
+        if not Wait_Bus then
+            return False;
+        end if;
 
+        Clear_Errors;
 
+        I2C_CR2 := ((Uint32 (SlaveAddr) and 16#7F#) * 2**I2C_CR2_SADD)
+                   or (2**I2C_CR2_NBYTES)
+                   or (2**I2C_CR2_AUTOEND)
+                   or (2**I2C_CR2_START);
 
+        if not Wait_Flag (2**I2C_ISR_TXIS, 100) then
+            return False;
+        end if;
 
+        -- Dato al registro
+        I2C_TXD := Uint32 (Data);
 
+        if not Wait_Flag (2**I2C_ISR_STOPF, 100) then
+            return False;
+        end if;
 
- function I2C_Write (SlaveAddr : Uint8; Data : Uint8) return Boolean is
-   begin
-      if not Wait_Bus then
-         return False;
-      end if;
+        I2C_ICR := I2C_ICR or (2**I2C_ISR_STOPF);
+        return True;
+    end I2C_Write;
 
-      Clear_Errors;
+    function I2C_Read (SlaveAddr : Uint8; Data : out Uint8) return Boolean is
+    begin
+        if not Wait_Bus then
+            return False;
+        end if;
 
-      I2C_CR2 := ((Uint32 (SlaveAddr) and 16#7F#) * 2**I2C_CR2_SADD)
-                 or (2**I2C_CR2_NBYTES)
-                 or (2**I2C_CR2_AUTOEND)
-                 or (2**I2C_CR2_START);
+        Clear_Errors;
 
-      if not WaitFlag (2**I2C_ISR_TXIS, 100) then
-         return False;
-      end if;
-   --Dato al registro
-      I2C_TXD := Uint32 (Data);
+        I2C_CR2 := ((Uint32 (SlaveAddr) and 16#7F#) * 2**I2C_CR2_SADD)
+                   or (2**I2C_CR2_RD_WRN)
+                   or (1 * 2**I2C_CR2_NBYTES)
+                   or (2**I2C_CR2_AUTOEND)
+                   or (2**I2C_CR2_START);
 
-      if not WaitFlag (2**I2C_ISR_STOPF, 100) then
-         return False;
-      end if;
+        if not Wait_Flag (2**I2C_ISR_RXNE, 100) then
+            return False;
+        end if;
 
-      I2C_ICR := I2C_ICR or (2**I2C_ISR_STOPF);
-      return True;
-   end I2C_Write;
+        Data := Uint8 (I2C_RXD and 16#FF#);
 
+        if not Wait_Flag (2**I2C_ISR_STOPF, 100) then
+            return False;
+        end if;
 
+        I2C_ICR := I2C_ICR or (2**I2C_ISR_STOPF);
+        return True;
+    end I2C_Read;
 
-     function I2C_Read (SlaveAddr : Uint8; Data : out Uint8) return Boolean is
-   begin
-      if not Wait_Bus then
-         return False;
-      end if;
-
-      Clear_Errors;
-
-      I2C_CR2 := ((Uint32 (SlaveAddr) and 16#7F#) * 2**I2C_CR2_SADD)
-                 or (2**I2C_CR2_RD_WRN)
-                 or (1 * 2**I2C_CR2_NBYTES)
-                 or (2**I2C_CR2_AUTOEND)
-                 or (2**I2C_CR2_START);
-
-      if not WaitFlag (2**I2C_ISR_RXNE, 100) then
-         return False;
-      end if;
-
-      data := Uint8 (I2C_RXD and 16#FF#);
-
-      if not WaitFlag (2**I2C_ISR_STOPF, 100) then
-         return False;
-      end if;
-
-      I2C_ICR := I2C_ICR or (2**I2C_ISR_STOPF);
-      return True;
-   end I2C_Read;
- 
-      
-  
-   function I2C_Write_Buffer (SlaveAddr : Uint8;
+    function I2C_WriteBuffer (SlaveAddr : Uint8;
                               Buffer    : Uint8_Array;
                               Len       : Uint8) return Boolean is
-      Index : Uint8 := 0;
-   begin
-      if not Wait_Bus then
-         return False;
-      end if;
-
-      Clear_Errors;
-
-      I2C_CR2 := ((Uint32 (SlaveAddr) and 16#7F#) * 2**I2C_CR2_SADD)
-                 or (Uint32 (Len) * 2**I2C_CR2_NBYTES)
-                 or (2**I2C_CR2_AUTOEND)
-                 or (2**I2C_CR2_START);
-
-      while Index < Len loop
-         if not WaitFlag (2**I2C_ISR_TXIS, 100) then
+        Index : Uint8 := 0;
+    begin
+        if not Wait_Bus then
             return False;
-         end if;
+        end if;
 
-         I2C_TXD := Uint32 (Buffer (Positive (Index + 1)));  -- Buffer  1 empieza
-         Index := Index + 1;
-      end loop;
+        Clear_Errors;
 
-      if not WaitFlag (2**I2C_ISR_STOPF, 100) then
-         return False;
-      end if;
+        I2C_CR2 := ((Uint32 (SlaveAddr) and 16#7F#) * 2**I2C_CR2_SADD)
+                   or (Uint32 (Len) * 2**I2C_CR2_NBYTES)
+                   or (2**I2C_CR2_AUTOEND)
+                   or (2**I2C_CR2_START);
 
-      I2C_ICR := I2C_ICR or (2**I2C_ISR_STOPF);
-      return True;
-   end I2C_Write_Buffer;
+        while Index < Len loop
+            if not Wait_Flag (2**I2C_ISR_TXIS, 100) then
+                return False;
+            end if;
 
-  
-        function I2C_Read_Buffer (SlaveAddr : Uint8;
+            I2C_TXD := Uint32 (Buffer (Positive (Index + 1)));  -- Buffer empieza en 1
+            Index := Index + 1;
+        end loop;
+
+        if not Wait_Flag (2**I2C_ISR_STOPF, 100) then
+            return False;
+        end if;
+
+        I2C_ICR := I2C_ICR or (2**I2C_ISR_STOPF);
+        return True;
+    end I2C_WriteBuffer;
+
+    function I2C_ReadBuffer (SlaveAddr : Uint8;
                              Buffer    : out Uint8_Array;
                              Len       : Uint8) return Boolean is
-      Index : Uint8 := 0;
-   begin
-      if not Wait_Bus then
-         return False;
-      end if;
-
-      Clear_Errors;
-
-      I2C_CR2 := ((Uint32 (SlaveAddr) and 16#7F#) * 2**I2C_CR2_SADD)
-                 or (2**I2C_CR2_RD_WRN)
-                 or (Uint32 (Len) * 2**I2C_CR2_NBYTES)
-                 or (2**I2C_CR2_AUTOEND)
-                 or (2**I2C_CR2_START);
-
-      while Index < Len loop
-         if not WaitFlag (2**I2C_ISR_RXNE, 100) then
+        Index : Uint8 := 0;
+    begin
+        if not Wait_Bus then
             return False;
-         end if;
+        end if;
 
-         Buffer (Positive (Index + 1)) := Uint8 (I2C_RXD and 16#FF#);
-         Index := Index + 1;
-      end loop;
+        Clear_Errors;
 
-      if not WaitFlag (2**I2C_ISR_STOPF, 100) then
-         return False;
-      end if;
+        I2C_CR2 := ((Uint32 (SlaveAddr) and 16#7F#) * 2**I2C_CR2_SADD)
+                   or (2**I2C_CR2_RD_WRN)
+                   or (Uint32 (Len) * 2**I2C_CR2_NBYTES)
+                   or (2**I2C_CR2_AUTOEND)
+                   or (2**I2C_CR2_START);
 
-      I2C_ICR := I2C_ICR or (2**I2C_ISR_STOPF);
-      return True;
-   end I2C_Read_Buffer;
+        while Index < Len loop
+            if not Wait_Flag (2**I2C_ISR_RXNE, 100) then
+                return False;
+            end if;
 
+            Buffer (Positive (Index + 1)) := Uint8 (I2C_RXD and 16#FF#);
+            Index := Index + 1;
+        end loop;
+
+        if not Wait_Flag (2**I2C_ISR_STOPF, 100) then
+            return False;
+        end if;
+
+        I2C_ICR := I2C_ICR or (2**I2C_ISR_STOPF);
+        return True;
+    end I2C_ReadBuffer;
+
+   
+    function I2C_WriteRead (SlaveAddr  : Uint8;
+                            Write_Data : Uint8;
+                            Read_Data  : out Uint8) return Boolean is
+    begin
+        if not Wait_Bus then
+            return False;
+        end if;
+
+        Clear_Errors;
+
+        --escritura de 1 byte con AUTOEND
+        I2C_CR2 := ((Uint32 (SlaveAddr) and 16#7F#) * 2**I2C_CR2_SADD)
+                   or (1 * 2**I2C_CR2_NBYTES)
+                   or (2**I2C_CR2_AUTOEND)
+                   or (2**I2C_CR2_START);
+
+       
+        if not Wait_Flag (2**I2C_ISR_TXIS, 100) then
+            return False;
+        end if;
+
+    
+        I2C_TXD := Uint32 (Write_Data);
+
+       
+        if not Wait_Flag (2**I2C_ISR_STOPF, 100) then
+            return False;
+        end if;
+
+        I2C_ICR := I2C_ICR or (2**I2C_ISR_STOPF);
+
+       
+        I2C_CR2 := ((Uint32 (SlaveAddr) and 16#7F#) * 2**I2C_CR2_SADD)
+                   or (2**I2C_CR2_RD_WRN)
+                   or (1 * 2**I2C_CR2_NBYTES)
+                   or (2**I2C_CR2_AUTOEND)
+                   or (2**I2C_CR2_START);
+
+       
+        if not Wait_Flag (2**I2C_ISR_RXNE, 100) then
+            return False;
+        end if;
+
+      
+        Read_Data := Uint8 (I2C_RXD and 16#FF#);
 
   
+        if not Wait_Flag (2**I2C_ISR_STOPF, 100) then
+            return False;
+        end if;
 
+      
+        I2C_ICR := I2C_ICR or (2**I2C_ISR_STOPF);
 
-   -- Escribir y leer un byte (para dispositivos como sensores no usar el metodo de llamar a las funciones pq metes un stop 
-   function I2C_WriteRead (SlaveAddr  : Uint8;
-                           Write_Data : Uint8;
-                           Read_Data  : out Uint8) return Boolean is
-   begin
-      if not Wait_Bus then
-         return False;
-      end if;
-
-      Clear_Errors;
-
-      -- Configurar escritura de 1 byte con AUTOEND
-      I2C_CR2 := ((Uint32 (SlaveAddr) and 16#7F#) * 2**I2C_CR2_SADD)
-                 or (1 * 2**I2C_CR2_NBYTES)
-                 or (2**I2C_CR2_AUTOEND)
-                 or (2**I2C_CR2_START);
-
-      -- Esperar TXIS
-      if not WaitFlag (2**I2C_ISR_TXIS, 100) then
-         return False;
-      end if;
-
-      -- Enviar dato
-      I2C_TXD := Uint32 (Write_Data);
-
-      -- Esperar STOPF (fin de la escritura no esperamos a tc pq tenemos autoend entonce sgenera el stop
-      if not WaitFlag (2**I2C_ISR_STOPF, 100) then
-         return False;
-      end if;
-
-      I2C_ICR := I2C_ICR or (2**I2C_ISR_STOPF);
-
-      -- Configurar lectura 
-      I2C_CR2 := ((Uint32 (SlaveAddr) and 16#7F#) * 2**I2C_CR2_SADD)
-                 or (2**I2C_CR2_RD_WRN)
-                 or (1 * 2**I2C_CR2_NBYTES)
-                 or (2**I2C_CR2_AUTOEND)
-                 or (2**I2C_CR2_START);
-
-      -- Esperar RXNE
-      if not WaitFlag (2**I2C_ISR_RXNE, 100) then
-         return False;
-      end if;
-
-      -- Leer dato
-      Read_Data := Uint8 (I2C_RXD and 16#FF#);
-
-      -- Esperar STOPF
-      if not WaitFlag (2**I2C_ISR_STOPF, 100) then
-         return False;
-      end if;
-
-      -- Limpiar STOPF
-      I2C_ICR := I2C_ICR or (2**I2C_ISR_STOPF);
-
-      return True;
-   end I2C_WriteRead;
-
+        return True;
+    end I2C_WriteRead;
 
 end I2C;

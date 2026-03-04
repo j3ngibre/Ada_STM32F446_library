@@ -2,33 +2,33 @@ with "config/nucleo_test_config.gpr";
 
 project Nucleo_Test is
 
-for Target use "arm-eabi";
---for Runtime ("Ada") use "zfp-stm32f4";  
-for Runtime ("Ada") use "embedded-stm32f4";
+   for Target use "arm-eabi";
+   for Runtime ("Ada") use "embedded-stm32f4";
 
+   for Source_Dirs use ("src/", "config/");
+   for Object_Dir use "obj/" & Nucleo_Test_Config.Build_Profile;
+   for Create_Missing_Dirs use "True";
+   for Exec_Dir use "bin";
+   for Main use ("main.adb");
 
-for Source_Dirs use ("src/", "config/");
-for Object_Dir use "obj/" & Nucleo_Test_Config.Build_Profile;
-for Create_Missing_Dirs use "True";
-for Exec_Dir use "bin";
-for Main use ("main.adb");
-
-package Linker is
+   package Linker is
       for Default_Switches ("Ada") use
-                                         ("-Wl,--gc-sections",
-                                          "-Wl,--print-memory-usage",
-                                          "-Wl,--defsym=_rom_size=512K",    --Tamaño FLASH
-                                          "-Wl,--defsym=_ram_size=128K");  -- Tamaño RAM
-      end Linker;
+         ("-Wl,--gc-sections",
+          "-Wl,--print-memory-usage",
+          "-Wl,--defsym=_rom_size=512K",
+          "-Wl,--defsym=_ram_size=128K");
+   end Linker;
 
-      package Compiler is
-            for Default_Switches ("Ada") use
-                  Nucleo_Test_Config.Ada_Compiler_Switches &
-                  ("-gnatws");   -- Ignora advertencias de estilo , no funciona 
-            end Compiler;
+   package Compiler is
+      for Default_Switches ("Ada") use
+         Nucleo_Test_Config.Ada_Compiler_Switches &
+         ("-gnatws",        -- Suprimir todos los warnings
+          "-gnat2022",      -- Usar Ada 2022
+          "-gnatj70");      -- Formato legible
+   end Compiler;
 
-            package Binder is
-                  for Switches ("Ada") use ("-Es");   -- Sin -n para que genere main
-            end Binder;
+   package Binder is
+      for Switches ("Ada") use ("-Es");
+   end Binder;
 
-      end Nucleo_Test;
+end Nucleo_Test;
