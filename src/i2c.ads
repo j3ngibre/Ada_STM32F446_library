@@ -11,7 +11,7 @@ package I2C is
 
 
    function I2C_WriteRead (SlaveAddr : Uint8;
-                             Write_Data : Uint8;
+                             WriteData : Uint8;
                              Read_Data : out Uint8) return Boolean;
 
    function I2C_Write  (SlaveAddr : Uint8;
