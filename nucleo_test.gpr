@@ -24,7 +24,7 @@ package Linker is
       package Compiler is
             for Default_Switches ("Ada") use
                   Nucleo_Test_Config.Ada_Compiler_Switches &
-                  ("-gnatws");   -- Ignora advertencias de estilo
+                  ("-gnatws");   -- Ignora advertencias de estilo , no funciona 
             end Compiler;
 
             package Binder is
