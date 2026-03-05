@@ -221,7 +221,7 @@ end Test_Animation;
       Update_Display;
       Wait (2000);
       
-      -- 3. Formas geométricas
+   
       Clear_Display;
       Draw_Rect (10, 10, 40, 20, True);
       Fill_Rect (70, 10, 40, 20, True);
@@ -230,7 +230,7 @@ end Test_Animation;
       Update_Display;
       Wait (2000);
       
-      -- 4. Patrón de rejilla
+   
       Clear_Display;
       for X in 0 .. 12 loop
          Draw_Line (I2C.Uint8 (X * 10), 0, I2C.Uint8 (X * 10), 63, (X mod 2 = 0));
@@ -241,7 +241,7 @@ end Test_Animation;
       Update_Display;
       Wait (2000);
       
-      --aqui problemas seguro
+
       Clear_Display;
       Put_String (0, 0, "!@#$%^&*()_+");
       Put_String (0, 8, "{}[]:;'<>?,./");
@@ -270,7 +270,7 @@ begin
    Test_Full_Demo;
   
    Clear_Display;
-   Put_String (20, 20, "PRUEBAS OK!");
+   Put_String (20, 20, "PRUEBAS OK");
    Update_Display;
    
 exception
