@@ -3,10 +3,7 @@
 -- https://www.youtube.com/watch?v=-d18xp2F3H8
 
 --Alguna direccion está mal 
-with Ada.Text_IO;
-with I2C; use I2C;
-with Ada.Real_Time; use Ada.Real_Time;
-with USART; use USART;
+
 with Ada.Text_IO;
 with I2C; use I2C;
 with Ada.Real_Time; use Ada.Real_Time;
@@ -21,7 +18,7 @@ package body SSD1306 is
      (2#0000_0001#, 2#0000_0010#, 2#0000_0100#, 2#0000_1000#,
       2#0001_0000#, 2#0010_0000#, 2#0100_0000#, 2#1000_0000#);
 
-   -- =========================================
+
    procedure Write_Command (Cmd : Uint8) is
       Cmd_Buffer : Uint8_Array (1 .. 2) := (CONTROL_BYTE_CMD, Cmd);
       Success    : Boolean;
@@ -29,7 +26,7 @@ package body SSD1306 is
       Success := I2C_WriteBuffer (SSD1306_ADDR, Cmd_Buffer);
    end Write_Command;
 
-   -- =========================================
+  
    procedure Write_Data (Data : Uint8) is
       Data_Buffer : Uint8_Array (1 .. 2) := (CONTROL_BYTE_DATA, Data);
       Success     : Boolean;
@@ -37,7 +34,7 @@ package body SSD1306 is
       Success := I2C_WriteBuffer (SSD1306_ADDR, Data_Buffer);
    end Write_Data;
 
-   -- =========================================
+
    procedure Write_Data_Buffer (Data : Display_Buffer; Len : Natural) is
       Tx_Buffer : Uint8_Array (1 .. Len + 1);
       Success   : Boolean;
@@ -49,7 +46,7 @@ package body SSD1306 is
       Success := I2C_WriteBuffer (SSD1306_ADDR, Tx_Buffer);
    end Write_Data_Buffer;
 
-   -- =========================================
+ 
    procedure Init is
    begin
       delay 0.010;

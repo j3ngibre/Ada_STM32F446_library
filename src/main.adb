@@ -12,11 +12,11 @@ procedure Main is
       delay Duration (ms) / 1000.0;
    end Wait;
 
-   -- =========================================
+
    procedure Test_Text is
    begin
       Clear_Display;
-      -- 128x32 = 4 líneas de 8px cada una (Y=0,8,16,24)
+      
       Put_String (0, 0,  "HOLA MUNDO!");
       Put_String (0, 8,  "SSD1306 OLED");
       Put_String (0, 16, "Ada + I2C");
@@ -25,7 +25,7 @@ procedure Main is
       Wait (2000);
    end Test_Text;
 
-   -- =========================================
+
    procedure Test_Pixels is
    begin
       Clear_Display;
@@ -42,7 +42,7 @@ procedure Main is
       Wait (2000);
    end Test_Pixels;
 
-   -- =========================================
+
    procedure Test_Lines is
    begin
       Clear_Display;
@@ -61,7 +61,7 @@ procedure Main is
       Wait (2000);
    end Test_Lines;
 
-   -- =========================================
+
    procedure Test_Rectangles is
    begin
       Clear_Display;
@@ -73,7 +73,7 @@ procedure Main is
       Wait (2000);
    end Test_Rectangles;
 
-   -- =========================================
+
    procedure Test_Filled_Rectangles is
    begin
       Clear_Display;
@@ -85,7 +85,7 @@ procedure Main is
       Wait (2000);
    end Test_Filled_Rectangles;
 
-   -- =========================================
+
    procedure Test_Effects is
    begin
       -- Fade in/out de contraste
@@ -104,7 +104,7 @@ procedure Main is
       Set_Contrast (CONTRAST_VAL);
    end Test_Effects;
 
-   -- =========================================
+
    procedure Test_Animation is
       X_Pos : Integer := 0;
       Y_Pos : Integer := 0;
@@ -112,7 +112,6 @@ procedure Main is
    begin
       for Frame in 1 .. 50 loop
          Clear_Display;
-         -- Cuadrado 6x6 que se mueve
          for DX in 0 .. 5 loop
             for DY in 0 .. 5 loop
                if X_Pos + DX <= 127 and Y_Pos + DY <= 31 then
@@ -121,7 +120,7 @@ procedure Main is
                end if;
             end loop;
          end loop;
-         -- Contador en línea inferior (Y=24, última línea visible)
+        
          Put_String (0, 24, "Frame:");
          declare
             Frame_Str : String := Integer'Image (Frame);
@@ -140,7 +139,7 @@ procedure Main is
             when others => null;
          end case;
 
-         -- Límites para 128x32
+      
          if X_Pos < 0   then X_Pos := 0;   Step := 0; end if;
          if X_Pos > 122 then X_Pos := 122;  Step := 2; end if;
          if Y_Pos < 0   then Y_Pos := 0;    Step := 1; end if;
@@ -150,17 +149,17 @@ procedure Main is
       end loop;
    end Test_Animation;
 
-   -- =========================================
+
    procedure Test_Full_Demo is
    begin
-      -- Pantalla de bienvenida
+     
       Clear_Display;
       Put_String (10, 8,  "SSD1306 DEMO");
       Put_String (10, 18, "Ada + I2C");
       Update_Display;
       Wait (2000);
 
-      -- 4 líneas de texto (máximo para 128x32)
+    
       Clear_Display;
       for Line in 0 .. 3 loop
          declare
@@ -173,7 +172,7 @@ procedure Main is
       Update_Display;
       Wait (2000);
 
-      -- Formas geométricas
+
       Clear_Display;
       Draw_Rect (0,  0, 60, 32, True);
       Fill_Rect (65, 4, 60, 24, True);
@@ -181,7 +180,7 @@ procedure Main is
       Update_Display;
       Wait (2000);
 
-      -- Caracteres especiales
+ 
       Clear_Display;
       Put_String (0, 0,  "!@#$%^&*()_+");
       Put_String (0, 8,  "{}[]:;<>?,./");
@@ -191,7 +190,7 @@ procedure Main is
 
    end Test_Full_Demo;
 
--- =========================================
+
 begin
    USART.Initialize (115200);
    USART.Send_Line ("USART INICIALIZADO");

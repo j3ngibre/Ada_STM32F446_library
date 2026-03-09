@@ -49,7 +49,7 @@ package SSD1306 is
    procedure Draw_Rect     (X, Y, W, H : Uint8; b : Boolean);
    procedure Fill_Rect     (X, Y, W, H : Uint8; b : Boolean);
 
-private
+
 
    type Display_Buffer is array (0 .. BUFFER_SIZE - 1) of Uint8;
    Frame_Buffer : Display_Buffer := (others => 0);
