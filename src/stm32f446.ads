@@ -114,6 +114,6 @@ package stm32f446 is
       I2C_TRISE_TRISE : constant := 0;-- 0:5
       --reservado hasta 15 
 
-     SCL_Pin : constant := 8;   -- PB8 como SCL o 6
+   SCL_Pin : constant := 8;   -- PB8 como SCL o 6
    SDA_Pin : constant := 9;   -- PB9 como SDA o 7
    end stm32f446;
