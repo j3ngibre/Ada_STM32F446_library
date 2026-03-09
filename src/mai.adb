@@ -1,4 +1,4 @@
-
+--763 
 with System;
 with USART;use USART;
 with Ada.Real_Time; use Ada.Real_Time;
@@ -7,7 +7,7 @@ procedure Main is
    -- Delay aproximado en milisegundos
    procedure Delay_MS (Milliseconds : Natural) is
    begin
-      delay(Milliseconds/1000.0);
+         delay 0.001 * Duration(Milliseconds);
 --  -/
 --       Cycles_Per_MS : constant := 16000;
 --       C : Natural;

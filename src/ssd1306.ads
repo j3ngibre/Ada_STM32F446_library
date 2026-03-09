@@ -1,9 +1,11 @@
-with I2C;
+with stm32f446; use stm32f446;
+with I2C;use I2C;
+
 
 package SSD1306 is
 
    -- Dirección 
-   SSD1306_ADDR : constant I2C.Uint8 := 16#3C#;  --  0x3D)
+   SSD1306_ADDR : constant Uint8 := 16#3C#;  --  0x3D)
 
    -- Dimensiones 
    WIDTH  : constant := 128;
@@ -17,60 +19,60 @@ package SSD1306 is
    procedure Clear_Display;
    procedure Display_On;
    procedure Display_Off;
-   procedure Set_Contrast (Value : I2C.Uint8);
+   procedure Set_Contrast (Value : Uint8);
    procedure Set_Inverse (Inverse : Boolean);
 
    -- Dibujar px
-   procedure Draw_Pixel (X : I2C.Uint8; Y : I2C.Uint8; b : Boolean);
+   procedure Draw_Pixel (X : Uint8; Y : Uint8; b : Boolean);
    procedure Update_Display;
 
    -- Texto
-   procedure Put_Char (X : I2C.Uint8; Y : I2C.Uint8; C : Character);
-   procedure Put_String (X : I2C.Uint8; Y : I2C.Uint8; S : String);
+   procedure Put_Char (X : Uint8; Y : Uint8; C : Character);
+   procedure Put_String (X : Uint8; Y : Uint8; S : String);
 
    -- Formas 
-   procedure Draw_Line (X0, Y0, X1, Y1 : I2C.Uint8; b : Boolean);
-   procedure Draw_Rect (X, Y, W, H : I2C.Uint8; b : Boolean);
-   procedure Fill_Rect (X, Y, W, H : I2C.Uint8; b : Boolean);
+   procedure Draw_Line (X0, Y0, X1, Y1 : Uint8; b : Boolean);
+   procedure Draw_Rect (X, Y, W, H : Uint8; b : Boolean);
+   procedure Fill_Rect (X, Y, W, H : Uint8; b : Boolean);
 
 private
 
    -- Buffer
-   type Display_Buffer is array (0 .. 1023) of I2C.Uint8;
+   type Display_Buffer is array (0 .. 1023) of Uint8;
    Frame_Buffer : Display_Buffer := (others => 0);
 
    
-   procedure Write_Command (Cmd : I2C.Uint8);
-   procedure Write_Data (Data : I2C.Uint8);
+   procedure Write_Command (Cmd : Uint8);
+   procedure Write_Data (Data : Uint8);
    procedure Write_Data_Buffer (Data : Display_Buffer; Len : Natural);
 
    -- Comandos 
-   SSD1306_SETCONTRAST     : constant I2C.Uint8 := 16#81#;
-   SSD1306_DISPLAYALLON_RESUME : constant I2C.Uint8 := 16#A4#;
-   SSD1306_DISPLAYALLON    : constant I2C.Uint8 := 16#A5#;
-   SSD1306_NORMALDISPLAY   : constant I2C.Uint8 := 16#A6#;
-   SSD1306_INVERTDISPLAY   : constant I2C.Uint8 := 16#A7#;
-   SSD1306_DISPLAYOFF      : constant I2C.Uint8 := 16#AE#;
-   SSD1306_DISPLAYON       : constant I2C.Uint8 := 16#AF#;
-   SSD1306_SETDISPLAYOFFSET : constant I2C.Uint8 := 16#D3#;
-   SSD1306_SETCOMPINS      : constant I2C.Uint8 := 16#DA#;
-   SSD1306_SETVCOMDETECT   : constant I2C.Uint8 := 16#DB#;
-   SSD1306_SETDISPLAYCLOCKDIV : constant I2C.Uint8 := 16#D5#;
-   SSD1306_SETPRECHARGE    : constant I2C.Uint8 := 16#D9#;
-   SSD1306_SETMULTIPLEX    : constant I2C.Uint8 := 16#A8#;
-   SSD1306_SETLOWCOLUMN    : constant I2C.Uint8 := 16#00#;
-   SSD1306_SETHIGHCOLUMN   : constant I2C.Uint8 := 16#10#;
-   SSD1306_SETSTARTLINE    : constant I2C.Uint8 := 16#40#;
-   SSD1306_MEMORYMODE      : constant I2C.Uint8 := 16#20#;
-   SSD1306_COLUMNADDR      : constant I2C.Uint8 := 16#21#;
-   SSD1306_PAGEADDR        : constant I2C.Uint8 := 16#22#;
-   SSD1306_COMSCANINC      : constant I2C.Uint8 := 16#C0#;
-   SSD1306_COMSCANDEC      : constant I2C.Uint8 := 16#C8#;
-   SSD1306_SEGREMAP        : constant I2C.Uint8 := 16#A0#;
-   SSD1306_CHARGEPUMP      : constant I2C.Uint8 := 16#8D#;
+   SSD1306_SETCONTRAST     : constant Uint8 := 16#81#;
+   SSD1306_DISPLAYALLON_RESUME : constant Uint8 := 16#A4#;
+   SSD1306_DISPLAYALLON    : constant Uint8 := 16#A5#;
+   SSD1306_NORMALDISPLAY   : constant Uint8 := 16#A6#;
+   SSD1306_INVERTDISPLAY   : constant Uint8 := 16#A7#;
+   SSD1306_DISPLAYOFF      : constant Uint8 := 16#AE#;
+   SSD1306_DISPLAYON       : constant Uint8 := 16#AF#;
+   SSD1306_SETDISPLAYOFFSET : constant Uint8 := 16#D3#;
+   SSD1306_SETCOMPINS      : constant Uint8 := 16#DA#;
+   SSD1306_SETVCOMDETECT   : constant Uint8 := 16#DB#;
+   SSD1306_SETDISPLAYCLOCKDIV : constant Uint8 := 16#D5#;
+   SSD1306_SETPRECHARGE    : constant Uint8 := 16#D9#;
+   SSD1306_SETMULTIPLEX    : constant Uint8 := 16#A8#;
+   SSD1306_SETLOWCOLUMN    : constant Uint8 := 16#00#;
+   SSD1306_SETHIGHCOLUMN   : constant Uint8 := 16#10#;
+   SSD1306_SETSTARTLINE    : constant Uint8 := 16#40#;
+   SSD1306_MEMORYMODE      : constant Uint8 := 16#20#;
+   SSD1306_COLUMNADDR      : constant Uint8 := 16#21#;
+   SSD1306_PAGEADDR        : constant Uint8 := 16#22#;
+   SSD1306_COMSCANINC      : constant Uint8 := 16#C0#;
+   SSD1306_COMSCANDEC      : constant Uint8 := 16#C8#;
+   SSD1306_SEGREMAP        : constant Uint8 := 16#A0#;
+   SSD1306_CHARGEPUMP      : constant Uint8 := 16#8D#;
 
    -- Fuente
-   type Font_Type is array (Character range ' ' .. '~') of I2C.Uint8;
+   type Font_Type is array (Character range ' ' .. '~') of Uint8;
    Font : constant Font_Type := (
       ' ' => 16#00#, '!' => 16#5E#, '"' => 16#06#, '#' => 16#6C#,
       '$' => 16#7C#, '%' => 16#52#, '&' => 16#FE#, ''' => 16#06#,

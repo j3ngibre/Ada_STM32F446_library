@@ -2,9 +2,10 @@
 
 with Ada.Text_IO;      use Ada.Text_IO;
 with Ada.Real_Time;    use Ada.Real_Time;
+with stm32f446;        use stm32f446;
 with I2C;              use I2C;
 with SSD1306;          use SSD1306;
-
+with USART;            use USART;
 
 
 
@@ -17,7 +18,7 @@ procedure Main is
    end Wait;
 
 
-
+   
    
    procedure Test_Text is
    begin
@@ -40,23 +41,9 @@ procedure Main is
    procedure Test_Pixels is
    begin
 
-
-      Clear_Display;
-      
-
       for I in 0 .. 63 loop
-         Draw_Pixel (I2C.Uint8 (I * 2), I2C.Uint8 (I), True);
-         Draw_Pixel (I2C.Uint8 (I * 2), I2C.Uint8 (63 - I), True);
-      end loop;
-    
-      for I in 0 .. 127 loop
-         Draw_Pixel (I2C.Uint8 (I), 0, True);        
-         Draw_Pixel (I2C.Uint8 (I), 63, True);          
-      end loop;
-      
-      for I in 0 .. 63 loop
-         Draw_Pixel (0, I2C.Uint8 (I), True);          
-         Draw_Pixel (127, I2C.Uint8 (I), True);       
+         Draw_Pixel (0, Uint8 (I), True);          
+         Draw_Pixel (127, Uint8 (I), True);       
       end loop;
       
       Update_Display;
@@ -97,11 +84,11 @@ end Test_Lines;
    
       for I in 0 .. 5 loop
          declare
-            Offset : I2C.Uint8 := I2C.Uint8 (I * 10);
-            Rect_X : I2C.Uint8 := 10 + Offset;
-            Rect_Y : I2C.Uint8 := 5 + Offset;
-            Rect_W : I2C.Uint8 := 108 - I2C.Uint8 (I * 20);
-            Rect_H : I2C.Uint8 := 54 - I2C.Uint8 (I * 10);
+            Offset : Uint8 := Uint8 (I * 10);
+            Rect_X : Uint8 := 10 + Offset;
+            Rect_Y : Uint8 := 5 + Offset;
+            Rect_W : Uint8 := 108 - Uint8 (I * 20);
+            Rect_H : Uint8 := 54 - Uint8 (I * 10);
          begin
             Draw_Rect (Rect_X, Rect_Y, Rect_W, Rect_H, True);
          end;
@@ -136,7 +123,7 @@ end Test_Lines;
       for I in 1 .. 3 loop
        
          for C in 0 .. 255 loop
-            Set_Contrast (I2C.Uint8 (C));
+            Set_Contrast (Uint8 (C));
             Wait (5);
             exit when C mod 64 = 0;  
          end loop;
@@ -163,8 +150,8 @@ begin
      
       for DX in 0 .. 5 loop
          for DY in 0 .. 5 loop
-            Draw_Pixel (I2C.Uint8 (X_Pos + DX), 
-                       I2C.Uint8 (Y_Pos + DY), True);
+            Draw_Pixel (Uint8 (X_Pos + DX), 
+                       Uint8 (Y_Pos + DY), True);
          end loop;
       end loop;
       
@@ -212,7 +199,7 @@ end Test_Animation;
       Clear_Display;
       for Line in 0 .. 7 loop
          declare
-            Y_Pos : I2C.Uint8 := I2C.Uint8 (Line * 8);
+            Y_Pos : Uint8 := Uint8 (Line * 8);
             Msg   : String := "Linea " & Integer'Image (Line + 1);
          begin
             Put_String (0, Y_Pos, Msg);
@@ -233,10 +220,10 @@ end Test_Animation;
    
       Clear_Display;
       for X in 0 .. 12 loop
-         Draw_Line (I2C.Uint8 (X * 10), 0, I2C.Uint8 (X * 10), 63, (X mod 2 = 0));
+         Draw_Line (Uint8 (X * 10), 0, Uint8 (X * 10), 63, (X mod 2 = 0));
       end loop;
       for Y in 0 .. 6 loop
-         Draw_Line (0, I2C.Uint8 (Y * 9), 127, I2C.Uint8 (Y * 9), (Y mod 2 = 0));
+         Draw_Line (0, Uint8 (Y * 9), 127, Uint8 (Y * 9), (Y mod 2 = 0));
       end loop;
       Update_Display;
       Wait (2000);
@@ -254,18 +241,35 @@ end Test_Animation;
 
 begin
  
- 
-
+   
+   USART.Initialize (115200);
+   USART.Send_Line ("USART INICIALIZADO");
+   wait (100);
    I2C.Initialize;
+   USART.Send_Line ("i2C INICIALIZADO");
+   wait (100);
+      USART.Send_Line ("ssC INICIALIZADO");
    SSD1306.Init;
+   USART.Send_Line ("ssd1306 INICIALIZADO");
+   wait(100);
+   USART.Send_Line ("");
    Wait (1500); 
-
+   USART.Send_Line ("texto prueba");
    Test_Text;
+   USART.Send_Line ("px");
+   wait(100);
    Test_Pixels;
+    USART.Send_Line ("px finalizado");
+   wait(100);
    Test_Lines;
+       USART.Send_Line (" lienas finalizado");
+   wait(100);
    Test_Rectangles;
+   USART.Send_Line (" rectangulo finalizado");
    Test_Filled_Rectangles;
+   USART.Send_Line (" rectangulo relleno  finalizado");
    Test_Effects;
+   USART.Send_Line (" efectos");
    Test_Animation;
    Test_Full_Demo;
   
@@ -276,5 +280,6 @@ begin
 exception
    when others =>
       null;
- 
+ --Funcion de reconocimiento de bus
+ --bit vivo 
 end Main;

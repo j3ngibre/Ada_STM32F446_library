@@ -1,6 +1,6 @@
 
 with System;
-
+with stm32f446; use stm32f446;
 -- -/
 -- 
 --  Funcionamiento de usart
@@ -77,9 +77,7 @@ with System;
 
 package USART is
 
-   type Uint8 is mod 2**8; --para adb
-   type Uint32 is mod 2**32; 
-
+  
 
    procedure Initialize (Baudrate : Uint32);
    
@@ -99,28 +97,28 @@ package USART is
    function Data_Available return Boolean;
 
 private
-
+-- -/
    -- Direcciones base
-   RCC   : constant := 16#4002_3800#; -- Direccion del Reset  y  Clock control para que llegue alimentacion, por defecto siempre apagado
-   GPIOA: constant := 16#4002_0000#; -- Direccion del gpioa
-   USART2_Base : constant := 16#4000_4400#;  -- USART2 donde están todos los registros 
-
+--    RCC   : constant := 16#4002_3800#; -- Direccion del Reset  y  Clock control para que llegue alimentacion, por defecto siempre apagado
+--    GPIOA: constant := 16#4002_0000#; -- Direccion del gpioa
+--    USART2_Base : constant := 16#4000_4400#;  -- USART2 donde están todos los registros 
+-- 
    -- Desplazamiento USART2
-   USART_SR_Offset  : constant := 16#00#;  -- Status 
-   USART_DR_Offset  : constant := 16#04#;  -- Registro de datos
-   USART_BRR_Offset : constant := 16#08#;  -- Baudrate
-   USART_CR1_Offset : constant := 16#0C#;  -- Control 1
-   USART_CR2_Offset : constant := 16#10#;  -- Control 2 , configuración avanzada
-   USART_CR3_Offset : constant := 16#14#;  -- Control 3 , funciones especiales , dma , control de flujo , errores de transmisión
-   
+--    USART_SR_Offset  : constant := 16#00#;  -- Status 
+--    USART_DR_Offset  : constant := 16#04#;  -- Registro de datos
+--    USART_BRR_Offset : constant := 16#08#;  -- Baudrate
+--    USART_CR1_Offset : constant := 16#0C#;  -- Control 1
+--    USART_CR2_Offset : constant := 16#10#;  -- Control 2 , configuración avanzada
+--    USART_CR3_Offset : constant := 16#14#;  -- Control 3 , funciones especiales , dma , control de flujo , errores de transmisión
+--    
    -- Bits de CR1
-   CR1_UE     : constant := 13;  -- USART enable
-   CR1_TE     : constant := 3;   --  habilitar transmisión
-   CR1_RE     : constant := 2;   -- habilitar recepcion
-   
+--    CR1_UE     : constant := 13;  -- USART enable
+--    CR1_TE     : constant := 3;   --  habilitar transmisión
+--    CR1_RE     : constant := 2;   -- habilitar recepcion
+--    
    -- Bits de SR
-   SR_TXE     : constant := 7;   -- Registro de transmisión vacio
-   SR_TC      : constant := 6;   -- Transmisión completa
-   SR_RXNE    : constant := 5;   -- Datos de registro no vacio
-   
+--    SR_TXE     : constant := 7;   -- Registro de transmisión vacio
+--    SR_TC      : constant := 6;   -- Transmisión completa
+--    SR_RXNE    : constant := 5;   -- Datos de registro no vacio
+--   -/ 
 end USART;
