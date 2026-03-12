@@ -5,7 +5,7 @@ package SSD1306 is
 
 
    type Display_Model is (SSD1306_128x64, SSD1306_128x32, SSD1306_96x16);
-   Model : constant Display_Model := SSD1306_128x32;  --cambiar_modelo_con_fe
+   Model : constant Display_Model := SSD1306_128x64;  --cambiar_modelo_con_fe
 
    
    WIDTH  : constant Uint8 :=
@@ -14,7 +14,7 @@ package SSD1306 is
          when SSD1306_128x32 => 128,
          when SSD1306_96x16  => 96);
 
-   HEIGHT : constant Uint8 :=
+   HEIGHT : constant Uint8 :=c 
       (case Model is
          when SSD1306_128x64 => 64,
          when SSD1306_128x32 => 32,

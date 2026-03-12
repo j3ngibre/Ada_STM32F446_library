@@ -5,131 +5,130 @@ with stm32f446;use stm32f446;
 with I2C; use I2C;
 with USART; use USART;
 
--- -/
-   ---------------------------------------------------------------------------
---  I2c1
---   Registro	Campo	Valor	Cálculo
--- I2C_CR2	FREQ	42	PCLK1 en MHz
--- I2C_CCR	CCR	210	42MHz/(2×100kHz)
--- I2C_CCR	FS	0	Standard-mode
--- I2C_CCR	DUTY	0	No usado en Sm
--- I2C_TRISE	TRISE	43	(1000ns/23.8ns)+1
-   ---------------------------------------------------------------------------
--- -/
 package body I2C is
+
 
 procedure Initialize is
 begin
-   -- =========================================
-   -- A. HABILITAR RELOJES
-   -- =========================================
-   RCC_AHB1ENR := RCC_AHB1ENR or Uint32(2#10#);      -- GPIOB clock
-   RCC_APB1ENR := RCC_APB1ENR  or Uint32(2**21);      -- I2C1 clock
 
-   -- =========================================
-   -- B. RESET DEL PERIFÉRICO I2C1
-   -- =========================================
-   I2C_CR1A := I2C_CR1A or  Uint32(2**I2C_CR1_SWRST);
-   for I in 1 .. 200 loop null; end loop;              -- espera mínima
-   I2C_CR1A := I2C_CR1A and not(Uint32(2**I2C_CR1_SWRST));
+   RCC_AHB1ENR := RCC_AHB1ENR or Uint32(2#10#);
+   RCC_APB1ENR := RCC_APB1ENR  or Uint32(2**21);
 
-   -- =========================================
-   -- C. CONFIGURAR GPIO PB8 (SCL) y PB9 (SDA)
-   -- =========================================
-
-   -- MODER: Alternate Function (10) en PB8 y PB9
-   --   PB8 → bits [17:16] = 10
-   --   PB9 → bits [19:18] = 10
+--recuperacionde bus 
+   -- Limpiar MODER PB8 y PB9
    GPIOB_MODER := (GPIOB_MODER
-      and not(Uint32(2**16)) and not(Uint32(2**17))    -- limpiar PB8
-      and not(Uint32(2**18)) and not(Uint32(2**19)))   -- limpiar PB9
-      or Uint32(2**17) or Uint32(2**19);               -- AF mode
+      and not(Uint32(2**16)) and not(Uint32(2**17))
+      and not(Uint32(2**18)) and not(Uint32(2**19)))
+      or Uint32(2**16) or Uint32(2**18);  -- output (01) PB8 y PB9
 
-   -- OTYPER: Open-drain obligatorio para I2C
-   --   PB8 → bit 8 = 1
-   --   PB9 → bit 9 = 1
+   -- Open-drain 
    GPIOB_OTYPER := GPIOB_OTYPER
       or Uint32(2**8) or Uint32(2**9);
 
-   -- OSPEEDR: Fast speed (10) en PB8 y PB9
-   --   PB8 → bits [17:16] = 10
-   --   PB9 → bits [19:18] = 10
-   GPIOB_OSPEEDR := (GPIOB_OSPEEDR
-      and not(Uint32(2**16)) and not(Uint32(2**18)))   -- limpiar bit bajo
-      or Uint32(2**17) or Uint32(2**19);               -- poner bit alto
-
-   -- PUPDR: Pull-up (01) en PB8 y PB9
-   --   PB8 → bits [17:16] = 01 → solo bit 16
-   --   PB9 → bits [19:18] = 01 → solo bit 18
+   -- Pull-up activo
    GPIOB_PUPDR := (GPIOB_PUPDR
-      and not(Uint32(2**17)) and not(Uint32(2**19)))   -- limpiar bit alto
-      or Uint32(2**16) or Uint32(2**18);               -- poner bit bajo
+      and not(Uint32(2**17)) and not(Uint32(2**19)))
+      or Uint32(2**16) or Uint32(2**18);
 
-   -- AFRH: AF4 = 0100 para I2C1 en PB8 y PB9
-   --   PB8 → AFRH bits [3:0]  = 0100 = 16#04#
-   --   PB9 → AFRH bits [7:4]  = 0100 = 16#40#
-   --   Juntos = 16#44#
+   -- Ambas líneas altas inicialmente
+   GPIOB_ODR := GPIOB_ODR or Uint32(2**8) or Uint32(2**9);
+   for J in 1 .. 500 loop null; end loop;
+
+   -- 9 pulsos de SCL manteniendo SDA alto
+   for I in 1 .. 9 loop
+      GPIOB_ODR := GPIOB_ODR and not(Uint32(2**8));  -- SCL bajo
+      for J in 1 .. 500 loop null; end loop;
+      GPIOB_ODR := GPIOB_ODR or Uint32(2**8);         -- SCL alto
+      for J in 1 .. 500 loop null; end loop;
+   end loop;
+
+   --SDA sube mientras SCL está alto
+   GPIOB_ODR := GPIOB_ODR and not(Uint32(2**9));  -- SDA bajo
+   for J in 1 .. 500 loop null; end loop;
+   GPIOB_ODR := GPIOB_ODR or Uint32(2**8);         -- SCL alto
+   for J in 1 .. 500 loop null; end loop;
+   GPIOB_ODR := GPIOB_ODR or Uint32(2**9);         -- SDA alto = STOP
+   for J in 1 .. 500 loop null; end loop;
+
+   I2C_CR1A := I2C_CR1A or  Uint32(2**I2C_CR1_SWRST);
+   for I in 1 .. 200 loop null; end loop;
+   I2C_CR1A := I2C_CR1A and not(Uint32(2**I2C_CR1_SWRST));
+
+  --conf
+   GPIOB_MODER := (GPIOB_MODER
+      and not(Uint32(2**16)) and not(Uint32(2**17))
+      and not(Uint32(2**18)) and not(Uint32(2**19)))
+      or Uint32(2**17) or Uint32(2**19);            -- AF (10)
+
+   GPIOB_OTYPER := GPIOB_OTYPER
+      or Uint32(2**8) or Uint32(2**9);              -- open-drain
+
+   GPIOB_OSPEEDR := (GPIOB_OSPEEDR
+      and not(Uint32(2**16)) and not(Uint32(2**18)))
+      or Uint32(2**17) or Uint32(2**19);            -- fast speed
+
+   GPIOB_PUPDR := (GPIOB_PUPDR
+      and not(Uint32(2**17)) and not(Uint32(2**19)))
+      or Uint32(2**16) or Uint32(2**18);            -- pull-up
+
    GPIOB_AFRH := (GPIOB_AFRH and not(Uint32(16#FF#)))
-      or Uint32(16#44#);
+      or Uint32(16#44#);                            -- AF4
 
-   -- =========================================
-   -- D. CONFIGURAR I2C1
-   -- =========================================
-
-   -- Asegurarse que PE=0 antes de configurar
+ --conf i2c
    I2C_CR1A := I2C_CR1A and not(Uint32(2**I2C_CR1_PE));
 
-   -- CR2: frecuencia del reloj APB1 = 42 MHz
    I2C_CR2A := (I2C_CR2A and not(Uint32(16#3F#)))
       or Uint32(42);
 
-   -- CCR: Standard Mode 100 kHz
-   --   FS=0 (standard), DUTY=0
-   --   CCR = PCLK1 / (2 * 100_000) = 42_000_000 / 200_000 = 210
    I2C_CCRA := (I2C_CCRA
       and not(Uint32(2**I2C_CCR_FS))
       and not(Uint32(2**I2C_CCR_DUTY))
-      and not(Uint32(16#0FFF#)))                       -- limpiar CCR[11:0]
+      and not(Uint32(16#0FFF#)))
       or Uint32(210);
 
-   -- TRISE: Standard Mode
-   --   TRISE = (1000ns / Tpclk) + 1
-   --   Tpclk = 1/42MHz = 23.8ns
-   --   TRISE = trunc(1000 / 23.8) + 1 = 42 + 1 = 43
    I2C_TRISEA := (I2C_TRISEA and not(Uint32(16#3F#)))
       or Uint32(43);
 
-   -- =========================================
-   -- E. HABILITAR PERIFÉRICO
-   -- =========================================
+
    I2C_CR1A := I2C_CR1A or Uint32(2**I2C_CR1_PE);
 
+
+   for I in 1 .. 10_000 loop null; end loop;
+   if (I2C_SR2A and Uint32(2)) /= 0 then
+      USART.Send_Line ("WARN: bus sigue BUSY tras init");
+   else
+      USART.Send_Line ("OK: bus libre tras init");
+   end if;
+
 end Initialize;
+
+
+
 
 
  procedure Clear_Errors is
    Tmp : Uint32;
 begin
-   -- 1. Leer SR1 para capturar estado actual
+   -- Leer SR1 para capturar estado actual
    Tmp := I2C_SR1A;
    
-   -- 2. Limpiar AF (Acknowledge Failure): leer SR2
+   --  Limpiar AF (Acknowledge Failure): leer SR2
    if (Tmp and (2**I2C_SR1_AF)) /= 0 then
       Tmp := I2C_SR2A;  -- Leer SR2 limpia AF
    end if;
    
-   -- 3. Limpiar STOPF: leer SR1 y luego escribir CR1
+   --  Limpiar STOPF: leer SR1 y luego escribir CR1
    if (Tmp and (2**I2C_SR1_STOPF)) /= 0 then
       Tmp := I2C_SR1A;     
       I2C_CR1A := I2C_CR1A;  
    end if;
    
-   -- 4. Limpiar BERR: leer SR1 y luego escribir CR1
+   --  Limpiar BERR: leer SR1 y luego escribir CR1
    if (Tmp and (2**I2C_SR1_BERR)) /= 0 then
       Tmp := I2C_SR1A;-- Escribir CR1 limpia BERR
    end if;
    
-   -- 5. Limpiar ARLO: leer SR1 y luego escribir CR1
+   --  Limpiar ARLO: leer SR1 y luego escribir CR1
    if (Tmp and (2**I2C_SR1_ARLO)) /= 0 then
       Tmp := I2C_SR1A;
       I2C_CR1A := I2C_CR1A; 
@@ -188,38 +187,38 @@ function I2C_Write (SlaveAddr : Uint8;
                     Data      : Uint8) return Boolean is
    Status : Uint32 with Volatile;
 begin
-   -- 1. START
+   --  START
    I2C_CR1A := I2C_CR1A or Uint32(2**I2C_CR1_START);
    if not Wait_Flag (Uint32(2**I2C_SR1_SB), 100) then
       USART.Send_Line ("FAIL: SB timeout");
       return False;
    end if;
 
-   -- 2. Enviar dirección (escritura: bit0 = 0)
+   --  Enviar dirección (escritura: bit0 = 0)
    I2C_DRA := Uint32(SlaveAddr) * 2;
 
-   -- 3. Esperar ADDR
+   --  Esperar ADDR
    if not Wait_Flag (Uint32(2**I2C_SR1_ADDR), 100) then
       USART.Send_Line ("FAIL: ADDR timeout (esclavo no responde ACK)");
       I2C_CR1A := I2C_CR1A or Uint32(2**I2C_CR1_STOP);  -- liberar bus
       return False;
    end if;
 
-   -- 4. Limpiar ADDR leyendo SR1 + SR2
+   --  Limpiar ADDR leyendo SR1 + SR2
    Status := I2C_SR1A;
    Status := I2C_SR2A;
 
-   -- 5. ✅ Esperar TXE ANTES de escribir el dato
+   --  Esperar TXE ANTES de escribir el dato
    if not Wait_Flag (Uint32(2**I2C_SR1_TXE), 100) then
       USART.Send_Line ("FAIL: TXE timeout antes de dato");
       I2C_CR1A := I2C_CR1A or Uint32(2**I2C_CR1_STOP);
       return False;
    end if;
 
-   -- 6. Enviar dato
+   --  Enviar dato
    I2C_DRA := Uint32(Data);
 
-   -- 7. Esperar BTF (transferencia completa)
+   --  Esperar BTF (transferencia completa)
    if not Wait_Flag (Uint32(2**I2C_SR1_BTF), 100) then
       USART.Send_Line ("FAIL: BTF timeout");
       I2C_CR1A := I2C_CR1A or Uint32(2**I2C_CR1_STOP);
@@ -247,9 +246,7 @@ begin
    Status := I2C_SR1A;
    Status := I2C_SR2A;
 
-   -- =========================================
-   -- 0b. ESPERAR A QUE EL BUS QUEDE LIBRE  ← NUEVO
-   -- =========================================
+  --esperar bus
    Timeout := 100;
    while (I2C_SR2A and Uint32(2)) /= 0 loop   -- bit 1 de SR2 = BUSY
       Timeout := Timeout - 1;
@@ -263,12 +260,10 @@ begin
       USART.Send_Line ("FAIL: PE no activo");
       return False;
    end if;
-   -- =========================================
-   -- 1. GENERAR START
-   -- =========================================
+  
    I2C_CR1A := I2C_CR1A or Uint32(2**I2C_CR1_START);
 
-   -- 2. Esperar SB
+ 
    if not Wait_Flag (Uint32(2**I2C_SR1_SB), 100) then
       USART.Send_Line ("FAIL: SB timeout - bus congelado");
       if (I2C_SR1A and Uint32(2**I2C_SR1_BERR)) /= 0 then
@@ -280,15 +275,11 @@ begin
       return False;
    end if;
 
-   -- =========================================
-   -- 3. ZONA CRITICA: leer SR1 + escribir DR juntos
-   -- =========================================
+
    Status  := I2C_SR1A;                          -- limpia SB
    I2C_DRA := Uint32(SlaveAddr) * 2;             -- dirección + R/W=0
 
-   -- =========================================
-   -- 4. ESPERAR ADDR
-   -- =========================================
+ --esperar addr
    if not Wait_Flag (Uint32(2**I2C_SR1_ADDR), 100) then
       -- Comprobar si fue NACK (AF)
       if (I2C_SR1A and Uint32(2**I2C_SR1_AF)) /= 0 then
@@ -301,13 +292,11 @@ begin
       return False;
    end if;
 
-   -- 5. Limpiar ADDR leyendo SR1 + SR2
+
    Status := I2C_SR1A;
    Status := I2C_SR2A;
 
-   -- =========================================
-   -- 6. ENVIAR BYTES DEL ARRAY
-   -- =========================================
+
    for Byte of Data loop
 
       -- Esperar TXE antes de escribir
@@ -329,18 +318,14 @@ begin
 
    end loop;
 
-   -- =========================================
-   -- 7. ESPERAR BTF (ultimo byte completado)
-   -- =========================================
+
    if not Wait_Flag (Uint32(2**I2C_SR1_BTF), 100) then
       USART.Send_Line ("FAIL: BTF timeout");
       I2C_CR1A := I2C_CR1A or Uint32(2**I2C_CR1_STOP);
       return False;
    end if;
 
-   -- =========================================
-   -- 8. GENERAR STOP
-   -- =========================================
+   
    I2C_CR1A := I2C_CR1A or Uint32(2**I2C_CR1_STOP);
 
    return True;
@@ -415,7 +400,7 @@ begin
    
   
    for I in Data'Range loop
-      -- Si es el último byte, debemos generar NACK y STOP
+      -- Si es el ult byte, debemos generar NACK y STOP
       if I = Data'Last then  
          I2C_CR1A := I2C_CR1A or Uint32(2**I2C_CR1_ACK); 
       end if;

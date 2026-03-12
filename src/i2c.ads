@@ -57,6 +57,9 @@ procedure Clear_Errors;
     GPIOB_PUPDR : Uint32 with
     Volatile,
     Address => System'To_Address (GPIOB + 16#0C#);  -- pull-up/pull-down
+    
+    GPIOB_ODR : Uint32 with
+      Volatile, Address => System'To_Address (GPIOB + 16#14#);
 
     -- Registros I2C
     I2C_CR1A : Uint32 with
