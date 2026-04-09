@@ -1,4 +1,5 @@
 
+with SSD1306;
 with System;
 with Ada.Real_Time; use Ada.Real_Time;
 with stm32f446;use stm32f446;
@@ -7,10 +8,13 @@ with USART; use USART;
 
 package body I2C is
 
-
+protected body Bus is
 procedure Initialize is
 begin
-
+     
+   if Initialized then
+      return;
+   end if;
    RCC_AHB1ENR := RCC_AHB1ENR or Uint32(2#10#);
    RCC_APB1ENR := RCC_APB1ENR  or Uint32(2**21);
 
@@ -99,7 +103,7 @@ begin
    else
       USART.Send_Line ("OK: bus libre tras init");
    end if;
-
+   Initialized:=true;
 end Initialize;
 
 
@@ -418,4 +422,6 @@ begin
    
    return True;
 end I2C_ReadBuffer;
+
+end Bus;
 end I2C;

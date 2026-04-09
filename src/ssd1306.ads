@@ -1,5 +1,5 @@
 with stm32f446; use stm32f446;
-with I2C; use I2C;
+
 
 package SSD1306 is
 
@@ -14,7 +14,7 @@ package SSD1306 is
          when SSD1306_128x32 => 128,
          when SSD1306_96x16  => 96);
 
-   HEIGHT : constant Uint8 :=c 
+   HEIGHT : constant Uint8 :=
       (case Model is
          when SSD1306_128x64 => 64,
          when SSD1306_128x32 => 32,

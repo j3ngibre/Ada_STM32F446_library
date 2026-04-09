@@ -8,8 +8,7 @@ alr clean
 alr build
 
 echo "Generando firmware.bin..."
-arm-eabi-objcopy -O binary bin/main firmware.bin
-
+arm-none-eabi-objcopy -O binary bin/main firmware.bin
 
 echo "Programando..."
 openocd -f interface/stlink.cfg \

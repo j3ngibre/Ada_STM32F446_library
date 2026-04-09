@@ -23,7 +23,7 @@ package body SSD1306 is
       Cmd_Buffer : Uint8_Array (1 .. 2) := (CONTROL_BYTE_CMD, Cmd);
       Success    : Boolean;
    begin
-      Success := I2C_WriteBuffer (SSD1306_ADDR, Cmd_Buffer);
+      Success := Bus.I2C_WriteBuffer (SSD1306_ADDR, Cmd_Buffer);
    end Write_Command;
 
   
@@ -31,7 +31,7 @@ package body SSD1306 is
       Data_Buffer : Uint8_Array (1 .. 2) := (CONTROL_BYTE_DATA, Data);
       Success     : Boolean;
    begin
-      Success := I2C_WriteBuffer (SSD1306_ADDR, Data_Buffer);
+      Success := Bus.I2C_WriteBuffer (SSD1306_ADDR, Data_Buffer);
    end Write_Data;
 
 
@@ -43,7 +43,7 @@ package body SSD1306 is
       for I in 1 .. Len loop
          Tx_Buffer (I + 1) := Data (I - 1);
       end loop;
-      Success := I2C_WriteBuffer (SSD1306_ADDR, Tx_Buffer);
+      Success := Bus.I2C_WriteBuffer (SSD1306_ADDR, Tx_Buffer);
    end Write_Data_Buffer;
 
  

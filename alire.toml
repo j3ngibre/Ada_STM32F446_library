@@ -1,12 +1,14 @@
 name = "nucleo_test"
 description = ""
 version = "0.1.0-dev"
-
 authors = ["sq"]
 maintainers = ["sq <example@example.com>"]
 maintainers-logins = ["sq"]
 licenses = "MIT OR Apache-2.0 WITH LLVM-exception"
 website = ""
 tags = []
-
 executables = ["nucleo_test"]
+
+[gpr-externals]
+Target = ""
+Runtime = ""

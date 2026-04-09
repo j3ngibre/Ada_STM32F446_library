@@ -3,7 +3,7 @@ with stm32f446;use stm32f446;
 package I2C is
 
    
-
+protected  Bus is 
    procedure Initialize;
 
 
@@ -24,7 +24,9 @@ package I2C is
 --function Wait_Bus return Boolean;
 function Wait_Flag (Flag_Mask : Uint32; Timeout_MS : Positive) return Boolean;
 procedure Clear_Errors;
-
+private 
+Initialized: Boolean:=false;
+end Bus;
 
    RCC_AHB1ENR : Uint32 with
     Volatile,
