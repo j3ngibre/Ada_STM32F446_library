@@ -1,7 +1,8 @@
 with Ada.Text_IO;      use Ada.Text_IO;
 with Ada.Real_Time;    use Ada.Real_Time;
 with stm32f446;        use stm32f446;
-with I2C;              use I2C;
+with I2C;
+with I2C_Driver; use I2C_Driver;
 with SSD1306;          use SSD1306;
 with USART;            use USART;
 
@@ -195,13 +196,17 @@ begin
    USART.Initialize (115200);
    USART.Send_Line ("USART INICIALIZADO");
    Wait (100);
-   USART.Send_Line ("USART INICIALIZADO2");
-   I2C.Bus.Initialize;
+   USART.Send_Line ("I2C_CONFIG:");
+   Bus.Mostrar_Config;
+   --Bus.Test_Hardware;
+   --Bus.Scan_I2C_Bus;
+   --Bus.Test_Minimo;
+   Bus.Initialize;
    USART.Send_Line ("I2C INICIALIZADO");
 
    declare
-      SR2 : constant Uint32 := I2C_SR2A;
-      CR1 : constant Uint32 := I2C_CR1A;
+      SR2 : constant Uint32 := I2C_SR2;
+      CR1 : constant Uint32 := I2C_CR1;
    begin
       if (SR2 and Uint32 (2)) /= 0 then
          USART.Send_Line ("DIAG: bus BUSY!");

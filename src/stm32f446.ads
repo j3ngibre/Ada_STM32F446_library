@@ -8,12 +8,18 @@ package stm32f446 is
   
   -- Direcciones base
    RCC   : constant := 16#4002_3800#; -- Direccion del Reset  y  Clock control para que llegue alimentacion, por defecto siempre apagado
-   GPIOA: constant := 16#4002_0000#; -- Direccion del gpioa
+   GPIOA : constant := 16#4002_0000#;
    GPIOB : constant := 16#4002_0400#;
+   GPIOC : constant := 16#4002_0800#;
+   GPIOD : constant := 16#4002_0C00#;
+   GPIOE : constant := 16#4002_1000#;
+   GPIOF : constant := 16#4002_1400#;
+   GPIOG : constant := 16#4002_1800#;
+   GPIOH : constant := 16#4002_1C00#;
    USART2_Base : constant := 16#4000_4400#;  -- USART2 donde están todos los registros 
    I2C1_Base : constant := 16#4000_5400#;
    I2C2_Base : constant := 16#4000_5800#;
-   I2C3_Base : constant := 16#4000_5C00#;
+   I2C3_Base : constant := 16#4000_5C00#; 
    I2C_OAR1 : constant := 16#08#;
    I2C_OAR2  : constant := 16#0C#;
    I2C_DR   : constant := 16#10#;--8bits los otros 8 reservados
@@ -114,6 +120,8 @@ package stm32f446 is
       I2C_TRISE_TRISE : constant := 0;-- 0:5
       --reservado hasta 15 
 
-   SCL_Pin : constant := 8;   -- PB8 como SCL o 6
-   SDA_Pin : constant := 9;   -- PB9 como SDA o 7
+   PCLK1_MHz : constant := 42;
+   I2C_AF : constant :=4;
+   I2C_SPEED  : constant  := 100_000;
+
    end stm32f446;

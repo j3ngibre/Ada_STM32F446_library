@@ -5,7 +5,8 @@
 --Alguna direccion está mal 
 
 with Ada.Text_IO;
-with I2C; use I2C;
+
+with I2C_Driver; use I2C_Driver;
 with Ada.Real_Time; use Ada.Real_Time;
 with USART; use USART;
 
@@ -23,7 +24,7 @@ package body SSD1306 is
       Cmd_Buffer : Uint8_Array (1 .. 2) := (CONTROL_BYTE_CMD, Cmd);
       Success    : Boolean;
    begin
-      Success := Bus.I2C_WriteBuffer (SSD1306_ADDR, Cmd_Buffer);
+      Success := Bus.Write_Buffer (SSD1306_ADDR, Cmd_Buffer);
    end Write_Command;
 
   
@@ -31,7 +32,7 @@ package body SSD1306 is
       Data_Buffer : Uint8_Array (1 .. 2) := (CONTROL_BYTE_DATA, Data);
       Success     : Boolean;
    begin
-      Success := Bus.I2C_WriteBuffer (SSD1306_ADDR, Data_Buffer);
+      Success := Bus.Write_Buffer (SSD1306_ADDR, Data_Buffer);
    end Write_Data;
 
 
@@ -43,7 +44,7 @@ package body SSD1306 is
       for I in 1 .. Len loop
          Tx_Buffer (I + 1) := Data (I - 1);
       end loop;
-      Success := Bus.I2C_WriteBuffer (SSD1306_ADDR, Tx_Buffer);
+      Success := Bus.Write_Buffer (SSD1306_ADDR, Tx_Buffer);
    end Write_Data_Buffer;
 
  
