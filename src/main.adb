@@ -4,7 +4,8 @@ with stm32f446;        use stm32f446;
 with I2C;
 with I2C_Driver; use I2C_Driver;
 with SSD1306;          use SSD1306;
-with USART;            use USART;
+with USART;            
+with USART_Driver; use USART_Driver;
 
 procedure Main is
 
@@ -193,46 +194,46 @@ procedure Main is
 
 
 begin
-   USART.Initialize (115200);
-   USART.Send_Line ("USART INICIALIZADO");
+  Initialize (115200);
+  Send_Line ("USART INICIALIZADO");
    Wait (100);
-   USART.Send_Line ("I2C_CONFIG:");
+  Send_Line ("I2C_CONFIG:");
    Bus.Mostrar_Config;
    --Bus.Test_Hardware;
    --Bus.Scan_I2C_Bus;
    --Bus.Test_Minimo;
    Bus.Initialize;
-   USART.Send_Line ("I2C INICIALIZADO");
+   Send_Line ("I2C INICIALIZADO");
 
    declare
       SR2 : constant Uint32 := I2C_SR2;
       CR1 : constant Uint32 := I2C_CR1;
    begin
       if (SR2 and Uint32 (2)) /= 0 then
-         USART.Send_Line ("DIAG: bus BUSY!");
+         Send_Line ("DIAG: bus BUSY!");
       else
-         USART.Send_Line ("DIAG: bus libre OK");
+         Send_Line ("DIAG: bus libre OK");
       end if;
       if (CR1 and Uint32 (2**I2C_CR1_PE)) /= 0 then
-         USART.Send_Line ("DIAG: PE=1 OK");
+        Send_Line ("DIAG: PE=1 OK");
       else
-         USART.Send_Line ("DIAG: PE=0 PROBLEMA");
+         Send_Line ("DIAG: PE=0 PROBLEMA");
       end if;
    end;
 
    Wait (100);
    SSD1306.Init;
-   USART.Send_Line ("SSD1306 INICIALIZADO");
+ Send_Line ("SSD1306 INICIALIZADO");
    Wait (1500);
 
-   Test_Text;             USART.Send_Line ("Test_Text OK");
-   Test_Pixels;           USART.Send_Line ("Test_Pixels OK");
-   Test_Lines;            USART.Send_Line ("Test_Lines OK");
-   Test_Rectangles;       USART.Send_Line ("Test_Rectangles OK");
-   Test_Filled_Rectangles; USART.Send_Line ("Test_Filled OK");
-   Test_Effects;          USART.Send_Line ("Test_Effects OK");
-   Test_Animation;        USART.Send_Line ("Test_Animation OK");
-   Test_Full_Demo;        USART.Send_Line ("Test_Full_Demo OK");
+   Test_Text;             Send_Line ("Test_Text OK");
+   Test_Pixels;           Send_Line ("Test_Pixels OK");
+   Test_Lines;          Send_Line ("Test_Lines OK");
+   Test_Rectangles;      Send_Line ("Test_Rectangles OK");
+   Test_Filled_Rectangles; Send_Line ("Test_Filled OK");
+   Test_Effects;        Send_Line ("Test_Effects OK");
+   Test_Animation;      Send_Line ("Test_Animation OK");
+   Test_Full_Demo;        Send_Line ("Test_Full_Demo OK");
 
    Clear_Display;
    Put_String (20, 12, "PRUEBAS OK");

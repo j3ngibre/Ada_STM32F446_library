@@ -66,50 +66,7 @@ package body USART is
 -- -/
 
   
-   RCC_AHB1ENR : Uint32 with
-     Volatile,
-     Address => System'To_Address (RCC + 16#30#);
    
-   RCC_APB1ENR : Uint32 with
-     Volatile,
-     Address => System'To_Address (RCC + 16#40#);
-   
-   GPIOA_MODER : Uint32 with
-     Volatile,
-     Address => System'To_Address (GPIOA + 16#00#);
-   
-   GPIOA_AFRL : Uint32 with
-     Volatile,
-     Address => System'To_Address (GPIOA + 16#20#);
-   
-   GPIOA_PUPDR : Uint32 with
-     Volatile,
-     Address => System'To_Address (GPIOA + 16#0C#);
-   
-   USART2_SR : Uint32 with
-     Volatile,
-     Address => System'To_Address (USART2_Base + USART_SR_Offset);
-   
-   USART2_DR : Uint32 with
-     Volatile,
-     Address => System'To_Address (USART2_Base + USART_DR_Offset);
-   
-   USART2_BRR : Uint32 with
-     Volatile,
-     Address => System'To_Address (USART2_Base + USART_BRR_Offset);
-   
-   USART2_CR1 : Uint32 with
-     Volatile,
-     Address => System'To_Address (USART2_Base + USART_CR1_Offset);
-   
-   USART2_CR2 : Uint32 with
-     Volatile,
-     Address => System'To_Address (USART2_Base + USART_CR2_Offset);
-   
-   USART2_CR3 : Uint32 with
-     Volatile,
-     Address => System'To_Address (USART2_Base + USART_CR3_Offset);
-
 
 
 
@@ -135,42 +92,64 @@ package body USART is
       Div : Uint32;
    begin
       --  Habilitar reloj para GPIOA
-      RCC_AHB1ENR := RCC_AHB1ENR or (1);
+      RCC_AHB1ENR := RCC_AHB1ENR or AHB1_RX_Bit or AHB1_TX_Bit;
       
       --  Habilitar reloj para USART2
-      RCC_APB1ENR := RCC_APB1ENR or (2**17);
-      
+      case USART_Base is
+         when USART1_Base=> 
+                           RCC_APB2ENR:= RCC_APB2ENR or APB_USART_Bit;
+                     
+         when USART6_Base=>RCC_APB2ENR:= RCC_APB2ENR or APB_USART_Bit;
+         when others => RCC_APB1ENR := RCC_APB1ENR or APB_USART_Bit;
+      end case;
+
+    
      -- Delay_Loop (1000);
       delay(0.001);
       -- PA2 como funcion alternativa por tanto creo que es 42 (tx)
-      GPIOA_MODER := GPIOA_MODER and not (3 * 2**(2 * 2));
-      GPIOA_MODER := GPIOA_MODER or (2 * 2**(2 * 2));
+      GPIO_MODER_TX := GPIO_MODER_TX and not (3 * 4**(TX_PIN));--#estoy poniendo 11 para limpiar bueno en nuestro caso 11100111
+      GPIO_MODER_TX := GPIO_MODER_TX or (2 * 4**(TX_PIN));
       
       --  PA3 (RX) como  alternativa 
-      GPIOA_MODER := GPIOA_MODER and not (3 * 2**(3 * 2));
-      GPIOA_MODER := GPIOA_MODER or (2 * 2**(3 * 2));
-      
+      GPIO_MODER_RX := GPIO_MODER_RX and not (3 * 4**(RX_PIN));--#estoy poniendo 11 para limpiar bueno en nuestro caso 11100111
+      GPIO_MODER_RX := GPIO_MODER_RX or (2 * 4**(RX_PIN));
       -- función alternativa AF7 para PA2 y PA3
-      GPIOA_AFRL := GPIOA_AFRL and not (16#F# * 2**(2 * 4));
-      GPIOA_AFRL := GPIOA_AFRL or (7 * 2**(2 * 4));
+
       
-      GPIOA_AFRL := GPIOA_AFRL and not (16#F# * 2**(3 * 4));
-      GPIOA_AFRL := GPIOA_AFRL or (7 * 2**(3 * 4));
-      
+       if TX_PIN < 8 then 
+      GPIO_AFRL_TX := (GPIO_AFRL_TX 
+    and not(Uint32(2#1111# * (2**(4*TX_PIN))))) or Uint32(AF_TX * (2**(4*(TX_PIN)))); 
+    else 
+    GPIO_AFRH_TX := (GPIO_AFRH_TX
+    and not(Uint32(2#1111# * (2**(4*(TX_PIN-8)))))) or Uint32(AF_TX* (2**(4*(TX_PIN-8)))); 
+    end if; 
+
+
+          
+       if RX_PIN < 8 then 
+      GPIO_AFRL_RX := (GPIO_AFRL_RX 
+    and not(Uint32(2#1111# * (2**(4*RX_PIN))))) or Uint32(AF_RX * (2**(4*(RX_PIN)))); 
+    else 
+    GPIO_AFRH_RX := (GPIO_AFRH_RX
+    and not(Uint32(2#1111# * (2**(4*(RX_PIN-8)))))) or Uint32(AF_RX* (2**(4*(RX_PIN-8)))); 
+    end if; 
+    
+
+      --a partir de aqui
       -- Configurar pull-ups
-      GPIOA_PUPDR := GPIOA_PUPDR or (1 * 2**(2 * 2));
-      GPIOA_PUPDR := GPIOA_PUPDR or (1 * 2**(3 * 2));
+      GPIO_PUPDR_TX := GPIO_PUPDR_TX or ( 4**(RX_PIN ));
+      GPIO_PUPDR_RX := GPIO_PUPDR_RX or ( 4**(TX_PIN));
       
       --  Calcular baud rate
       Div := PCLK1 / Baudrate;
-      USART2_BRR := Div;
+      USART_BRR := Div;
       
-      --  Habilitar USART2
-      USART2_CR1 := (2**3) or (2**2) or (2**13);  -- TE, RE, UE
+      --  Habilitar USART
+      USART_CR1 := (2**CR1_TE) or (2**CR1_RE) or (2**CR1_UE);  -- TE, RE, UE
       
-      --  Configurar 8 bits, 1 stop bit
-      USART2_CR2 := 0;
-      USART2_CR3 := 0;
+     
+      USART_CR2 := 0;
+      USART_CR3 := 0;
       
       --Delay_Loop (10000);
       delay(0.01);
@@ -183,7 +162,7 @@ package body USART is
    
    function Data_Available return Boolean is --FUNCION PARA IR DEPURANDO PODEMOS ELIMINARLA 
    begin
-      return (USART2_SR and (2**5)) /= 0;  -- RXNE el de si hay dato
+      return (USART_SR and (2**SR_RXNE)) /= 0;  -- RXNE el de si hay dato
    end Data_Available;
 
 
@@ -191,10 +170,10 @@ package body USART is
    
    function Read_Char return Uint8 is
    begin
-      while (USART2_SR and (2**5)) = 0 loop   --bloqueado esperando a que  llegue algo a RNXE
+      while (USART_SR and (2**SR_RXNE)) = 0 loop   --bloqueado esperando a que  llegue algo a RNXE
          null;
       end loop;
-      return Uint8 (USART2_DR and 16#FF#); --LOs bits de abajo
+      return Uint8 (USART_DR and 16#FF#); --LOs bits de abajo
    end Read_Char;
 
 
@@ -204,13 +183,13 @@ package body USART is
    
    procedure Send_Char (C : Uint8) is
    begin
-      while (USART2_SR and (2**7)) = 0 loop  -- Esperando TXE , bloqueo
+      while (USART_SR and (2**SR_TXE)) = 0 loop  -- Esperando TXE , bloqueo
          null;
       end loop;
-      USART2_DR := Uint32 (C); --A 32 bits 0000_0000_0000_0000_0000_0000_1111_1111
+      USART_DR := Uint32 (C); --A 32 bits 0000_0000_0000_0000_0000_0000_1111_1111
       
       
-      while (USART2_SR and (2**6)) = 0 loop  -- TC bit , transmission completed , hasta bloqueado
+      while (USART_SR and (2**SR_TC)) = 0 loop  -- TC bit , transmission completed , hasta bloqueado
          null;
       end loop;
    end Send_Char;

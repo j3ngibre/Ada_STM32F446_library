@@ -41,21 +41,21 @@ Initialized: Boolean:=false;
 end Bus;
    function GPIO_To_AHB1_Bit (Base : Uint32) return Uint32 is
      (case Base is
-        when GPIOA => 2**0,
-        when GPIOB => 2**1,
-        when GPIOC => 2**2,
-        when GPIOD => 2**3,
-        when GPIOE => 2**4,
-        when GPIOF => 2**5,
-        when GPIOG => 2**6,
-        when GPIOH => 2**7,
+        when GPIOA => 2**GPIOAEN,
+        when GPIOB => 2**GPIOBEN,
+        when GPIOC => 2**GPIOCEN,
+        when GPIOD => 2**GPIODEN,
+        when GPIOE => 2**GPIOEEN,
+        when GPIOF => 2**GPIOFEN,
+        when GPIOG => 2**GPIOGEN,
+        when GPIOH => 2**GPIOHEN,
         when others => 0);
    
       function I2C_To_APB1_Bit (Base : Uint32) return Uint32 is
      (case Base is
-        when I2C1_Base => 2**21,
-        when I2C2_Base => 2**22,
-        when I2C3_Base => 2**23,
+        when I2C1_Base => 2**I2C1EN,
+        when I2C2_Base => 2**I2C2EN,
+        when I2C3_Base => 2**I2C3EN,
         when others    => 0);
    
    AHB1_SCL_Bit : constant Uint32 := GPIO_To_AHB1_Bit (GPIO_SCL);
@@ -64,80 +64,80 @@ end Bus;
 
    RCC_AHB1ENR : Uint32 with
     Volatile,
-    Address => System'To_Address (RCC + 16#30#);--bit 1
+    Address => System'To_Address (RCC + AHB1ENR_A);--bit 1
 
    RCC_APB1ENR : Uint32 with
     Volatile,
-    Address => System'To_Address (RCC + 16#40#);--23es I2C3 , 22 I2C2 , 21 I2C1 21
+    Address => System'To_Address (RCC + APB1ENR_A);--23es I2C3 , 22 I2C2 , 21 I2C1 21
 
 
 
 
    GPIO_MODER_SCL : Uint32 with
    Volatile,
-   Address => System'To_Address (GPIO_SCL + 16#00#);
+   Address => System'To_Address (GPIO_SCL + GPIO_MODER_Offset);
   
 
    GPIO_MODER_SDA : Uint32 with
    Volatile,
-   Address => System'To_Address (GPIO_SDA + 16#00#);
+   Address => System'To_Address (GPIO_SDA + GPIO_MODER_Offset);
 
 
     GPIO_AFRL_SCL : Uint32 with
     Volatile,
-    Address => System'To_Address (GPIO_SCL + 16#20#);  -- funcion alt (pines 0-7) no usamos pero si hay cambio de pin si
+    Address => System'To_Address (GPIO_SCL + GPIO_AFRL_Offset);  -- funcion alt (pines 0-7) no usamos pero si hay cambio de pin si
 
      GPIO_AFRL_SDA : Uint32 with
     Volatile,
-    Address => System'To_Address (GPIO_SDA + 16#20#);  -- funcion alt (pines 0-7) no usamos pero si hay cambio de pin si
+    Address => System'To_Address (GPIO_SDA + GPIO_AFRL_Offset);  -- funcion alt (pines 0-7) no usamos pero si hay cambio de pin si
 
    GPIO_AFRH_SCL : Uint32 with
    Volatile,
-   Address => System'To_Address (GPIO_SCL + 16#24#);  -- funcion alternativa (pines 8-15) 
+   Address => System'To_Address (GPIO_SCL + GPIO_AFRH_Offset);  -- funcion alternativa (pines 8-15) 
 
    GPIO_AFRH_SDA : Uint32 with
    Volatile,
-   Address => System'To_Address (GPIO_SDA + 16#24#);  -- funcion alternativa (pines 8-15) 
+   Address => System'To_Address (GPIO_SDA + GPIO_AFRH_Offset);  -- funcion alternativa (pines 8-15) 
 
 
 
 
    GPIO_OTYPER_SCL : Uint32 with
    Volatile,
-   Address => System'To_Address (GPIO_SCL + 16#04#);  
+   Address => System'To_Address (GPIO_SCL + GPIO_OTYPER_Offset);  
 
    GPIO_OTYPER_SDA : Uint32 with
    Volatile,
-   Address => System'To_Address (GPIO_SDA + 16#04#); 
+   Address => System'To_Address (GPIO_SDA + GPIO_OTYPER_Offset); 
 
    
 
     GPIO_OSPEEDR_SCL : Uint32 with
     Volatile,
-    Address => System'To_Address (GPIO_SCL + 16#08#);  -- velocidad de cambio de valor de pin conmutacion
+    Address => System'To_Address (GPIO_SCL + GPIO_OTYPER_Offset);  -- velocidad de cambio de valor de pin conmutacion
 
    GPIO_OSPEEDR_SDA : Uint32 with
     Volatile,
-    Address => System'To_Address (GPIO_SDA + 16#08#);  -- velocidad de cambio de valor de pin conmutacion
+    Address => System'To_Address (GPIO_SDA + GPIO_OTYPER_Offset);  -- velocidad de cambio de valor de pin conmutacion
 
 
 
 
    GPIO_PUPDR_SCL : Uint32 with
    Volatile,
-   Address => System'To_Address (GPIO_SCL + 16#0C#);  -- pull-up/pull-down
+   Address => System'To_Address (GPIO_SCL + GPIO_PUPDR_Offset);  -- pull-up/pull-down
 
    GPIO_PUPDR_SDA : Uint32 with
    Volatile,
-   Address => System'To_Address (GPIO_SDA + 16#0C#);  -- pull-up/pull-down
+   Address => System'To_Address (GPIO_SDA + GPIO_PUPDR_Offset);  -- pull-up/pull-down
     
     
 
    GPIO_ODR_SCL : Uint32 with
-   Volatile, Address => System'To_Address (GPIO_SCL+ 16#14#);
+   Volatile, Address => System'To_Address (GPIO_SCL+ GPIO_ODR_Offset);
 
    GPIO_ODR_SDA : Uint32 with
-   Volatile, Address => System'To_Address (GPIO_SDA+ 16#14#);
+   Volatile, Address => System'To_Address (GPIO_SDA+ GPIO_ODR_Offset);
 
 
 

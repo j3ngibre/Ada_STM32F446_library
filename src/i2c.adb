@@ -1,9 +1,10 @@
-with SSD1306;
+
 with System;
 with Ada.Real_Time; use Ada.Real_Time;
 with stm32f446; use stm32f446;
 with I2C; use I2C;
-with USART; use USART;
+with USART;
+with USART_Driver; use USART_Driver;
 
 package body I2C is
 
@@ -168,9 +169,9 @@ begin
 
    for I in 1 .. 10_000 loop null; end loop;
    if (SR2 and Uint32(2)) /= 0 then
-      USART.Send_Line ("WARN: bus sigue BUSY tras init");
+      Send_Line ("WARN: bus sigue BUSY tras init");
    else
-      USART.Send_Line ("OK: bus libre tras init");
+      Send_Line ("OK: bus libre tras init");
    end if;
    Initialized:=true;
    
@@ -249,14 +250,14 @@ end Initialize;
          CR1 := CR1 or Uint32 (2 ** I2C_CR1_START);
 
          if not Wait_Flag (Uint32 (2 ** I2C_SR1_SB), 100) then
-            USART.Send_Line ("FAIL: SB timeout");
+            Send_Line ("FAIL: SB timeout");
             return False;
          end if;
 
          DR := Uint32 (SlaveAddr) * 2;  -- 7-bit addr, R/W=0
 
          if not Wait_Flag (Uint32 (2 ** I2C_SR1_ADDR), 100) then
-            USART.Send_Line ("FAIL: ADDR timeout");
+            Send_Line ("FAIL: ADDR timeout");
             CR1 := CR1 or Uint32 (2 ** I2C_CR1_STOP);
             return False;
          end if;
@@ -265,7 +266,7 @@ end Initialize;
          Status := SR2;
 
          if not Wait_Flag (Uint32 (2 ** I2C_SR1_TXE), 100) then
-            USART.Send_Line ("FAIL: TXE timeout");
+            Send_Line ("FAIL: TXE timeout");
             CR1 := CR1 or Uint32 (2 ** I2C_CR1_STOP);
             return False;
          end if;
@@ -273,7 +274,7 @@ end Initialize;
          DR := Uint32 (Data);
 
          if not Wait_Flag (Uint32 (2 ** I2C_SR1_BTF), 100) then
-            USART.Send_Line ("FAIL: BTF timeout");
+            Send_Line ("FAIL: BTF timeout");
             CR1 := CR1 or Uint32 (2 ** I2C_CR1_STOP);
             return False;
          end if;
@@ -299,20 +300,20 @@ end Initialize;
          while (SR2 and Uint32 (2)) /= 0 loop
             Timeout := Timeout - 1;
             if Timeout = 0 then
-               USART.Send_Line ("FAIL: bus BUSY antes de START");
+               Send_Line ("FAIL: bus BUSY antes de START");
                return False;
             end if;
          end loop;
 
          if (CR1 and Uint32 (2 ** I2C_CR1_PE)) = 0 then
-            USART.Send_Line ("FAIL: PE no activo");
+            Send_Line ("FAIL: PE no activo");
             return False;
          end if;
 
          CR1 := CR1 or Uint32 (2 ** I2C_CR1_START);
 
          if not Wait_Flag (Uint32 (2 ** I2C_SR1_SB), 100) then
-            USART.Send_Line ("FAIL: SB timeout");
+            Send_Line ("FAIL: SB timeout");
             return False;
          end if;
 
@@ -321,10 +322,10 @@ end Initialize;
 
          if not Wait_Flag (Uint32 (2 ** I2C_SR1_ADDR), 100) then
             if (SR1 and Uint32 (2 ** I2C_SR1_AF)) /= 0 then
-               USART.Send_Line ("FAIL: NACK en direccion");
+               Send_Line ("FAIL: NACK en direccion");
                SR1 := SR1 and not (Uint32 (2 ** I2C_SR1_AF));
             else
-               USART.Send_Line ("FAIL: ADDR timeout");
+               Send_Line ("FAIL: ADDR timeout");
             end if;
             CR1 := CR1 or Uint32 (2 ** I2C_CR1_STOP);
             return False;
@@ -335,12 +336,12 @@ end Initialize;
 
          for Byte of Data loop
             if not Wait_Flag (Uint32 (2 ** I2C_SR1_TXE), 100) then
-               USART.Send_Line ("FAIL: TXE timeout");
+               Send_Line ("FAIL: TXE timeout");
                CR1 := CR1 or Uint32 (2 ** I2C_CR1_STOP);
                return False;
             end if;
             if (SR1 and Uint32 (2 ** I2C_SR1_AF)) /= 0 then
-               USART.Send_Line ("FAIL: NACK durante envio");
+               Send_Line ("FAIL: NACK durante envio");
                SR1 := SR1 and not (Uint32 (2 ** I2C_SR1_AF));
                CR1 := CR1 or Uint32 (2 ** I2C_CR1_STOP);
                return False;
@@ -349,7 +350,7 @@ end Initialize;
          end loop;
 
          if not Wait_Flag (Uint32 (2 ** I2C_SR1_BTF), 100) then
-            USART.Send_Line ("FAIL: BTF timeout");
+            Send_Line ("FAIL: BTF timeout");
             CR1 := CR1 or Uint32 (2 ** I2C_CR1_STOP);
             return False;
          end if;
@@ -473,7 +474,7 @@ procedure Test_Hardware is
    Scl_State, Sda_State : Uint32;
    Scl_Shift, Sda_Shift : Uint32;
 begin
-   USART.Send_Line ("=== TEST HARDWARE ===");
+   Send_Line ("=== TEST HARDWARE ===");
    
    -- Leer estado actual de los pines usando división por potencias de 2
    -- En lugar de shr, usamos división: (valor / 2**pin) and 1
@@ -483,21 +484,21 @@ begin
    Scl_State := (GPIO_ODR_SCL / Scl_Shift) and 1;
    Sda_State := (GPIO_ODR_SDA / Sda_Shift) and 1;
    
-   USART.Send_Line ("Estado actual - SCL=" & Uint32'Image(Scl_State) & 
+   Send_Line ("Estado actual - SCL=" & Uint32'Image(Scl_State) & 
                     " SDA=" & Uint32'Image(Sda_State));
    
    if Scl_State = 0 then
-      USART.Send_Line ("¡ALERTA! SCL está BAJO - posible cortocircuito");
+      Send_Line ("¡ALERTA! SCL está BAJO - posible cortocircuito");
    end if;
    
    if Sda_State = 0 then
-      USART.Send_Line ("¡ALERTA! SDA está BAJO - posible cortocircuito");
+      Send_Line ("¡ALERTA! SDA está BAJO - posible cortocircuito");
    end if;
    
    if Scl_State = 1 and Sda_State = 1 then
-      USART.Send_Line ("OK: Ambas líneas ALTAS - pull-ups funcionando");
+      Send_Line ("OK: Ambas líneas ALTAS - pull-ups funcionando");
    else
-      USART.Send_Line ("ERROR: Pull-ups ausentes, dañados o dispositivo roto");
+      Send_Line ("ERROR: Pull-ups ausentes, dañados o dispositivo roto");
    end if;
 end Test_Hardware;
 
@@ -506,7 +507,7 @@ procedure Scan_I2C_Bus is
    Status : Uint32;
    Found : Boolean := False;
 begin
-   USART.Send_Line ("=== ESCANEO I2C ===");
+   Send_Line ("=== ESCANEO I2C ===");
    
    for Addr in 0 .. 127 loop
       -- Generar START
@@ -517,7 +518,7 @@ begin
          DR := Uint32(Addr) * 2;
          
          if Wait_Flag(Uint32(2**I2C_SR1_ADDR), 10) then
-            USART.Send_Line ("Dispositivo encontrado en 0x" & 
+            Send_Line ("Dispositivo encontrado en 0x" & 
                            Uint8'Image(Uint8(Addr)));
             Found := True;
             
@@ -533,11 +534,11 @@ begin
    end loop;
    
    if not Found then
-      USART.Send_Line ("NINGÚN dispositivo encontrado - posible:");
-      USART.Send_Line ("  1. Dispositivo roto/desconectado");
-      USART.Send_Line ("  2. Dirección incorrecta");
-      USART.Send_Line ("  3. Sin alimentación en el dispositivo");
-      USART.Send_Line ("  4. Pull-ups ausentes");
+      Send_Line ("NINGÚN dispositivo encontrado - posible:");
+      Send_Line ("  1. Dispositivo roto/desconectado");
+      Send_Line ("  2. Dirección incorrecta");
+      Send_Line ("  3. Sin alimentación en el dispositivo");
+      Send_Line ("  4. Pull-ups ausentes");
    end if;
 end Scan_I2C_Bus;
 
@@ -545,17 +546,17 @@ procedure Test_Minimo is
    Success : Boolean;
    Dummy_Data : Uint8 := 0;
 begin
-   USART.Send_Line ("=== TEST MÍNIMO ===");
+   Send_Line ("=== TEST MÍNIMO ===");
    
    CR1 := CR1 or Uint32(2**I2C_CR1_START);
    
    if Wait_Flag(Uint32(2**I2C_SR1_SB), 100) then
-      USART.Send_Line ("OK: START generado");
+      Send_Line ("OK: START generado");
       CR1 := CR1 or Uint32(2**I2C_CR1_STOP);
-      USART.Send_Line ("OK: STOP generado");
+      Send_Line ("OK: STOP generado");
    else
-      USART.Send_Line ("FAIL: No se pudo generar START");
-      USART.Send_Line ("  -> Bus bloqueado por hardware");
+      Send_Line ("FAIL: No se pudo generar START");
+      Send_Line ("  -> Bus bloqueado por hardware");
    end if;
 end Test_Minimo;
 
@@ -572,13 +573,13 @@ end Test_Minimo;
       end To_String;
 
    begin
-      USART.Send_Line("---- Configuracion I2C ----");
-      USART.Send_Line("I2C_Base: " & To_String(I2C_Base));
-      USART.Send_Line("SCL_PIN : " & To_String(SCL_PIN));
-      USART.Send_Line("SDA_PIN : " & To_String(SDA_PIN));
-      USART.Send_Line("GPIO_SCL: " & To_String(GPIO_SCL));
-      USART.Send_Line("GPIO_SDA: " & To_String(GPIO_SDA));
-      USART.Send_Line("---------------------------");
+      Send_Line("---- Configuracion I2C ----");
+      Send_Line("I2C_Base: " & To_String(I2C_Base));
+      Send_Line("SCL_PIN : " & To_String(SCL_PIN));
+      Send_Line("SDA_PIN : " & To_String(SDA_PIN));
+      Send_Line("GPIO_SCL: " & To_String(GPIO_SCL));
+      Send_Line("GPIO_SDA: " & To_String(GPIO_SDA));
+      Send_Line("---------------------------");
    end Mostrar_Config;
 
   end Bus;

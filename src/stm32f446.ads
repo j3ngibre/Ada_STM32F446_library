@@ -16,32 +16,128 @@ package stm32f446 is
    GPIOF : constant := 16#4002_1400#;
    GPIOG : constant := 16#4002_1800#;
    GPIOH : constant := 16#4002_1C00#;
-   USART2_Base : constant := 16#4000_4400#;  -- USART2 donde están todos los registros 
+  
    I2C1_Base : constant := 16#4000_5400#;
    I2C2_Base : constant := 16#4000_5800#;
    I2C3_Base : constant := 16#4000_5C00#; 
+   USART1_Base : constant := 16#40011000#;
+   USART2_Base : constant := 16#40004400#;
+   USART3_Base : constant := 16#40004800#;
+   UART4_Base  : constant := 16#40004C00#;
+   UART5_Base : constant := 16#40005000#;
+   USART6_Base : constant := 16#40011400#;
    I2C_OAR1 : constant := 16#08#;
    I2C_OAR2  : constant := 16#0C#;
    I2C_DR   : constant := 16#10#;--8bits los otros 8 reservados
+   --Nuevo
+   
   
+   GPIO_MODER_Offset:constant:=16#00#;
+   GPIO_AFRL_Offset:constant:=16#20#;
+   GPIO_AFRH_Offset:constant:=16#24#;
+   GPIO_OTYPER_Offset:constant:=16#04#;
+   GPIO_OSPEEDR_Offset:constant:=16#08#;
+   GPIO_PUPDR_Offset:constant:=16#0C#;
+   GPIO_ODR_Offset:constant:=16#14#;
+
+
+   AHB1ENR_A: constant := 16#30#;
+      OTGHSULPIEN:constant:=30;
+      OTGHSEN:constant:=29;
+      DMA2EN:constant:=22;
+      DMA1EN:constant:=21;
+      BKPSRAMEN:constant:=18;
+      CRCEN:constant:=12;
+      GPIOHEN:constant:=7;
+      GPIOGEN:constant:=6;
+      GPIOFEN:constant:=5;
+      GPIOEEN:constant:=4;
+      GPIODEN:constant:=3;
+      GPIOCEN:constant:=2;
+      GPIOBEN:constant:=1;
+      GPIOAEN:constant:=0;
+
+   APB1ENR_A: constant := 16#40#;
+      DACEN:constant:=29;
+      PWREN:constant:=28;
+      CECEN:constant:=27;
+      CAN2EN:constant:=26;
+      CAN1EN:constant:=25;
+      FMPI2C1EN:constant:=24;
+      I2C3EN:constant:=23;
+      I2C2EN :constant:=22;
+      I2C1EN :constant:=21;
+      USART5EN:constant:=20;
+      USART4EN:constant:=19;
+      USART3EN :constant:=18;
+      USART2EN :constant:=17;
+      SPDIFRXEN:constant:=16;
+      SPI3EN:constant:=15;
+      SPI2EN:constant:=14;
+      WWDEGEN:constant:=11;
+      TIM14EN:constant:=8;
+      TIM13EN:constant:=7;
+      TIM12EN:constant:=6;
+      TIM7EN:constant:=5;
+      TIM6EN:constant:=4;
+      TIM5EN:constant:=3;
+      TIM4EN:constant:=2;
+      TIM3EN:constant:=1;
+      TIM2EN:constant:=0;
+
+   APB2ENR_A :constant := 16#44#;
+      TIM1EN:constant:=0;
+      TIM8EN:constant:=1;
+      USART1EN:constant:=4;
+      USART6EN:constant:=5;
+      ADC1EN:constant:=8;
+      ADC2EN:constant:=9;
+      ADC3EN:constant:=10;
+      SDIOEN:constant:=11;
+      SPI1EN:constant:=12;
+      SPI4EN:constant:=13;
+      SYSCFGEN:constant:=14;
+      TIM9EN:constant:=16;
+      TIM10EN:constant:=17;
+      TIM11EN:constant:=18;
+      SAI2EN:constant:=22;
+      SAI1EN:constant:=23;
 
    -- Desplazamiento USART2
-   USART_SR_Offset  : constant := 16#00#;  -- Status 
+ 
    USART_DR_Offset  : constant := 16#04#;  -- Registro de datos
    USART_BRR_Offset : constant := 16#08#;  -- Baudrate
-   USART_CR1_Offset : constant := 16#0C#;  -- Control 1
+   
    USART_CR2_Offset : constant := 16#10#;  -- Control 2 , configuración avanzada
    USART_CR3_Offset : constant := 16#14#;  -- Control 3 , funciones especiales , dma , control de flujo , errores de transmisión
-   
-   -- Bits de CR1
-   CR1_UE     : constant := 13;  -- USART enable
-   CR1_TE     : constant := 3;   --  habilitar transmisión
-   CR1_RE     : constant := 2;   -- habilitar recepcion
+   USART_CR1_Offset : constant := 16#0C#;  -- Control 1
+      CR1_UE     : constant := 13;  -- USART enable
+      CR1_M      : constant := 12;
+      CR1_WAKE   : constant :=11;
+      CR1_PCE    : constant :=10;
+      CR1_PS     : constant := 9;
+      CR1_PEIE   : constant := 8;
+      CR1_TXEIE  : constant := 7;
+      CR1_TCIE   : constant := 6;
+      CR1_RXNEIE : constant := 5;
+      CR1_IDLEIE : constant := 4;
+      CR1_TE     : constant := 3;   --  habilitar transmisión
+      CR1_RE     : constant := 2;   -- habilitar recepcion
+      CR1_RWU    : constant := 1;
+      CR1_SBK    : constant := 0;
    
    -- Bits de SR
+  USART_SR_Offset  : constant := 16#00#;  -- Status 
+   SR_CTS     : constant := 9;
+   SR_LBD     : constant := 8;
    SR_TXE     : constant := 7;   -- Registro de transmisión vacio
    SR_TC      : constant := 6;   -- Transmisión completa
    SR_RXNE    : constant := 5;   -- Datos de registro no vacio
+   SR_IDLE    : constant := 4;
+   SR_ORE     : constant := 3;
+   SR_NF      : constant := 2;
+   SR_FE      : constant := 1;
+   SR_PE      : constant := 0;
 
 
    --Offsets de registros I2C

@@ -73,7 +73,15 @@ with stm32f446; use stm32f446;
 --       → 10 bits totales
 -- 
 -- -/
-
+generic
+   GPIO_RX:Uint32;
+   GPIO_TX:Uint32;
+   RX_PIN: Natural;
+   TX_PIN:Natural;
+   AF_RX:Natural;
+   AF_TX:Natural;
+   USART_Base:Uint32;
+ 
 
 package USART is
 
@@ -96,29 +104,108 @@ package USART is
    -- Checkea datos
    function Data_Available return Boolean;
 
-private
--- -/
-   -- Direcciones base
---    RCC   : constant := 16#4002_3800#; -- Direccion del Reset  y  Clock control para que llegue alimentacion, por defecto siempre apagado
---    GPIOA: constant := 16#4002_0000#; -- Direccion del gpioa
---    USART2_Base : constant := 16#4000_4400#;  -- USART2 donde están todos los registros 
--- 
-   -- Desplazamiento USART2
---    USART_SR_Offset  : constant := 16#00#;  -- Status 
---    USART_DR_Offset  : constant := 16#04#;  -- Registro de datos
---    USART_BRR_Offset : constant := 16#08#;  -- Baudrate
---    USART_CR1_Offset : constant := 16#0C#;  -- Control 1
---    USART_CR2_Offset : constant := 16#10#;  -- Control 2 , configuración avanzada
---    USART_CR3_Offset : constant := 16#14#;  -- Control 3 , funciones especiales , dma , control de flujo , errores de transmisión
---    
-   -- Bits de CR1
---    CR1_UE     : constant := 13;  -- USART enable
---    CR1_TE     : constant := 3;   --  habilitar transmisión
---    CR1_RE     : constant := 2;   -- habilitar recepcion
---    
-   -- Bits de SR
---    SR_TXE     : constant := 7;   -- Registro de transmisión vacio
---    SR_TC      : constant := 6;   -- Transmisión completa
---    SR_RXNE    : constant := 5;   -- Datos de registro no vacio
---   -/ 
+  private
+
+    function GPIO_To_AHB1_Bit (Base : Uint32) return Uint32 is
+    (case Base is
+        when GPIOA => 2**GPIOAEN,
+        when GPIOB => 2**GPIOBEN,
+        when GPIOC => 2**GPIOCEN,
+        when GPIOD => 2**GPIODEN,
+        when GPIOE => 2**GPIOEEN,
+        when GPIOF => 2**GPIOFEN,
+        when GPIOG => 2**GPIOGEN,
+        when GPIOH => 2**GPIOHEN,
+        when others => 0);
+   
+      function USART_To_APB_Bit (Base : Uint32) return Uint32 is
+      (case Base is
+        when USART1_Base => 2**USART1EN,
+        when USART2_Base => 2**USART2EN,
+        when USART3_Base => 2**USART3EN,
+        when UART4_Base => 2**USART4EN,
+        when UART5_Base => 2**USART5EN,
+        when USART6_Base => 2**USART6EN,
+        when others    => 0);
+
+      AHB1_TX_Bit : constant Uint32 := GPIO_To_AHB1_Bit (GPIO_TX);
+      AHB1_RX_Bit : constant Uint32 := GPIO_To_AHB1_Bit (GPIO_RX);
+      APB_USART_Bit : constant Uint32 := USART_To_APB_Bit  (USART_Base);
+    
+
+
+
+    RCC_AHB1ENR : Uint32 with
+     Volatile,
+     Address => System'To_Address (RCC + AHB1ENR_A);
+
+    RCC_APB2ENR:Uint32 with 
+      Volatile, 
+      Address => System'To_Address(RCC+APB2ENR_A);
+   
+   RCC_APB1ENR : Uint32 with
+     Volatile,
+     Address => System'To_Address (RCC + APB1ENR_A);
+
+    --Esto hay q tocarlo despues
+   
+   GPIO_MODER_TX : Uint32 with
+     Volatile,
+     Address => System'To_Address (GPIO_TX + GPIO_MODER_Offset);
+    
+    GPIO_MODER_RX : Uint32 with
+     Volatile,
+     Address => System'To_Address (GPIO_RX + GPIO_MODER_Offset);
+   
+   GPIO_AFRL_RX : Uint32 with
+     Volatile,
+     Address => System'To_Address (GPIO_RX + GPIO_AFRL_Offset);
+
+    GPIO_AFRL_TX : Uint32 with
+     Volatile,
+     Address => System'To_Address (GPIO_TX + GPIO_AFRL_Offset);
+
+
+       
+   GPIO_AFRH_RX : Uint32 with
+     Volatile,
+     Address => System'To_Address (GPIO_RX + GPIO_AFRH_Offset);
+
+    GPIO_AFRH_TX : Uint32 with
+     Volatile,
+     Address => System'To_Address (GPIO_TX + GPIO_AFRH_Offset);
+   
+   
+   GPIO_PUPDR_RX : Uint32 with
+     Volatile,
+     Address => System'To_Address (GPIO_RX + GPIO_PUPDR_Offset);
+
+    GPIO_PUPDR_TX : Uint32 with
+     Volatile,
+     Address => System'To_Address (GPIO_TX + GPIO_PUPDR_Offset);
+   
+   USART_SR : Uint32 with
+     Volatile,
+     Address => System'To_Address (USART_Base + USART_SR_Offset);
+   
+   USART_DR : Uint32 with
+     Volatile,
+     Address => System'To_Address (USART_Base + USART_DR_Offset);
+   
+   USART_BRR : Uint32 with
+     Volatile,
+     Address => System'To_Address (USART_Base + USART_BRR_Offset);
+   
+   USART_CR1 : Uint32 with
+     Volatile,
+     Address => System'To_Address (USART_Base + USART_CR1_Offset);
+   
+   USART_CR2 : Uint32 with
+     Volatile,
+     Address => System'To_Address (USART_Base + USART_CR2_Offset);
+   
+   USART_CR3 : Uint32 with
+     Volatile,
+     Address => System'To_Address (USART_Base + USART_CR3_Offset);
+
 end USART;
