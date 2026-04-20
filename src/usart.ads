@@ -84,7 +84,7 @@ generic
  
 
 package USART is
-
+   protected PU is 
   
 
    procedure Initialize (Baudrate : Uint32);
@@ -103,7 +103,7 @@ package USART is
    
    -- Checkea datos
    function Data_Available return Boolean;
-
+end PU;
   private
 
     function GPIO_To_AHB1_Bit (Base : Uint32) return Uint32 is

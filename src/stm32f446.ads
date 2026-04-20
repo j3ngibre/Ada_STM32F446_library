@@ -38,7 +38,9 @@ package stm32f446 is
    GPIO_OTYPER_Offset:constant:=16#04#;
    GPIO_OSPEEDR_Offset:constant:=16#08#;
    GPIO_PUPDR_Offset:constant:=16#0C#;
+   GPIO_IDR_Offset:constant:=16#10#;
    GPIO_ODR_Offset:constant:=16#14#;
+    GPIO_BSRR_Offset:constant:=16#18#;
 
 
    AHB1ENR_A: constant := 16#30#;

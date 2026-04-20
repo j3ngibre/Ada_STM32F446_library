@@ -3,6 +3,7 @@ with System;
 with Ada.Real_Time; use Ada.Real_Time;
 with stm32f446; use stm32f446;
 package body USART is
+   protected body PU is
 -- -/
 -- *********************************************************************************************************************************
 --    
@@ -208,4 +209,5 @@ package body USART is
       Send_Char (10);  -- Line finish ->siguiente linea  puede ser interesanto hacer funcion para poder dibujar por pantlla a modo de ampliación
    end Send_Line;
    
+   end PU;
 end USART;
