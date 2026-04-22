@@ -29,9 +29,14 @@ package stm32f446 is
    I2C_OAR1 : constant := 16#08#;
    I2C_OAR2  : constant := 16#0C#;
    I2C_DR   : constant := 16#10#;--8bits los otros 8 reservados
-   --Nuevo
+   ADC1_Base: constant := 16#4001_2000#;
+   ADC2_Base: constant := 16#4001_2100#;
+   ADC3_Base: constant := 16#4001_2200#;
+   ADC_Common_Registers: constant := 16#4001_2300#;
+      ADC_CSR_Offset : constant := 16#00#;   
+      ADC_CCR_Offset : constant := 16#04#;  
+      ADC_CDR_Offset : constant := 16#08#;
    
-  
    GPIO_MODER_Offset:constant:=16#00#;
    GPIO_AFRL_Offset:constant:=16#20#;
    GPIO_AFRH_Offset:constant:=16#24#;
@@ -217,6 +222,59 @@ package stm32f446 is
    I2C_TRISE : constant := 16#20#;
       I2C_TRISE_TRISE : constant := 0;-- 0:5
       --reservado hasta 15 
+
+-- Registros ADC 
+ADC_SR_Offset    : constant := 16#00#; 
+   ADC_SR_AWD:constant:=0;
+   ADC_SR_EOC:constant:= 1;
+   ADC_SR_JEOC: constant := 2;
+   ADC_SR_JSTRT:constant := 3;
+  ADC_SR_STRT:constant := 4;
+   ADC_SR_OVR:constant :=5;
+ADC_CR1_Offset   : constant := 16#04#; 
+  ADC_CR1_AWDCH:constant :=0;
+   ADC_CR1_EOCIE  : constant := 5;  
+   ADC_CR1_AWDIE :constant:=6;
+   ADC_CR1_JEOCIE : constant := 7; 
+   ADC_CR1_SCAN   : constant := 8;  
+   ADC_CR1_AWDSGL:constant:=9;
+   ADC_CR1_DISCEN:constant:=11;
+   ADC_CR1_JDISCEN:constant:=12;
+   ADC_CR1_DISCNUM:constant:=13;
+   ADC_CR1_JAWDEN : constant := 22; 
+   ADC_CR1_AWDEN  : constant := 23; 
+   ADC_CR1_RES    : constant := 24; 
+   ADC_CR1_OVRIE: constant:=26;
+ADC_CR2_Offset   : constant := 16#08#;
+   ADC_CR2_ADON : constant := 0;
+   ADC_CR2_CONT : constant := 1;
+   ADC_CR2_DMA : constant := 8;
+   ADC_CR2_DDS : constant := 9;
+   ADC_CR2_EOCS : constant := 10;
+   ADC_CR2_ALIGN : constant := 11;
+   ADC_CR2_JEXTSEL : constant :=16; 
+   ADC_CR2_JEXTEN : constant := 20;
+   ADC_CR2_JSWSTART : constant :=22; 
+   ADC_CR2_EXTSEL : constant := 24;
+   ADC_CR2_EXTEN : constant := 28;
+   ADC_CR2_SWSTART : constant := 30;
+ADC_SMPR1_Offset : constant := 16#0C#; --3BITS HASTA 26 ELEGIR SAMPLING TIME 10-18  
+ADC_SMPR2_Offset : constant := 16#10#;   --3BITS 0-9
+ADC_JOFR1_Offset : constant := 16#14#;   
+ADC_JOFR2_Offset : constant := 16#18#;   
+ADC_JOFR3_Offset : constant := 16#1C#;   
+ADC_JOFR4_Offset : constant := 16#20#;   
+ADC_HTR_Offset   : constant := 16#24#;  --11 BITS 
+ADC_LTR_Offset   : constant := 16#28#;   --11BITS
+ADC_SQR1_Offset  : constant := 16#2C#;   --23BITS DE 5 EN 5
+ADC_SQR2_Offset  : constant := 16#30#;   --29 DE 5 EN 5
+ADC_SQR3_Offset  : constant := 16#34#;   --29
+ADC_JSQR_Offset  : constant := 16#38#;   --22 DE 5 EN 5
+ADC_JDR1_Offset  : constant := 16#3C#;   --15 BITS
+ADC_JDR2_Offset  : constant := 16#40#;   
+ADC_JDR3_Offset  : constant := 16#44#;   
+ADC_JDR4_Offset  : constant := 16#48#;   
+ADC_DR_Offset    : constant := 16#4C#;  
 
    PCLK1_MHz : constant := 42;
    I2C_AF : constant :=4;

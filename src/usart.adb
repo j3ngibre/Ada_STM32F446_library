@@ -3,7 +3,7 @@ with System;
 with Ada.Real_Time; use Ada.Real_Time;
 with stm32f446; use stm32f446;
 package body USART is
-   protected body PU is
+ --  protected body PU is
 -- -/
 -- *********************************************************************************************************************************
 --    
@@ -90,7 +90,7 @@ package body USART is
    
    procedure Initialize (Baudrate : Uint32) is
       PCLK1 : constant Uint32 := 42_000_000;  -- Segun configuracion 16mhz , 42mhz , 48 mhz ni idea de pq es 42
-      Div : Uint32;
+   Div:Uint32;
    begin
       --  Habilitar reloj para GPIOA
       RCC_AHB1ENR := RCC_AHB1ENR or AHB1_RX_Bit or AHB1_TX_Bit;
@@ -138,13 +138,12 @@ package body USART is
 
       --a partir de aqui
       -- Configurar pull-ups
-      GPIO_PUPDR_TX := GPIO_PUPDR_TX or ( 4**(RX_PIN ));
-      GPIO_PUPDR_RX := GPIO_PUPDR_RX or ( 4**(TX_PIN));
+      GPIO_PUPDR_TX := GPIO_PUPDR_TX or ( 4**(TX_PIN ));
+      GPIO_PUPDR_RX := GPIO_PUPDR_RX or ( 4**(RX_PIN));
       
       --  Calcular baud rate
-      Div := PCLK1 / Baudrate;
-      USART_BRR := Div;
-      
+      Div:=PCLK1 / Baudrate;
+      USART_BRR  := Div;
       --  Habilitar USART
       USART_CR1 := (2**CR1_TE) or (2**CR1_RE) or (2**CR1_UE);  -- TE, RE, UE
       
@@ -209,5 +208,5 @@ package body USART is
       Send_Char (10);  -- Line finish ->siguiente linea  puede ser interesanto hacer funcion para poder dibujar por pantlla a modo de ampliación
    end Send_Line;
    
-   end PU;
+   --end PU; --bloquea el usart el uso de objetos protegidos con tareas y etc por lo cual hay que dejarlo de usar , vamos a probar el adc
 end USART;

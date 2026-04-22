@@ -14,10 +14,12 @@ package GPIO is
       Pin  : Pin_Number;
    end record;
 
-   type GPIO_Mode is (Input, Output);
+
 
    type GPIO_Pull is (No_Pull, Pull_Up, Pull_Down);
-
+   procedure Config_Analog(GPIO_P:GPIO_Point;
+                           Pull :GPIO_Pull :=No_Pull);
+   
    procedure Config_Output (GPIO_P : GPIO_Point);
    procedure Config_Input  (GPIO_P : GPIO_Point;
                             Pull   : GPIO_Pull := No_Pull);

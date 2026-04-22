@@ -51,7 +51,7 @@ package body SSD1306 is
    procedure Init is
    begin
       delay 0.010;
-      PU.Send_Line ("Inicializando SSD1306...");
+         Send_Line ("Inicializando SSD1306...");
 
       Write_Command (SSD1306_DISPLAYOFF);
       Write_Command (SSD1306_SETDISPLAYCLOCKDIV);
@@ -82,7 +82,7 @@ package body SSD1306 is
       Clear_Display;
 
       Write_Command (SSD1306_DISPLAYON);
-      PU.Send_Line ("Init completado");
+         Send_Line ("Init completado");
       delay 0.010;
    end Init;
 

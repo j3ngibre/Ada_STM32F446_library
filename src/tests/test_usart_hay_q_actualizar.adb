@@ -1,6 +1,7 @@
 --763 
 with System;
-with USART;use USART;
+with USART;
+with USART_Driver; use USART_Driver;
 with Ada.Real_Time; use Ada.Real_Time;
 procedure Main is
    
@@ -63,52 +64,52 @@ begin
    end;
    
   
-   USART.Initialize (115200);
+   PU.Initialize (115200);
    
    Delay_MS (100);
    
    
-   USART.Send_Line ("");
+   PU.Send_Line ("");
  
-   USART.Send_Line ("");
-   USART.Send_Line ("USART2  a 115200 baudios");
-   USART.Send_Line ("");
-   USART.Send_Line ("Comandos disponibles:");
-   USART.Send_Line ("  '1' - LED");
-   USART.Send_Line ("  '0' - of LED");
-   USART.Send_Line ("  't' - Toggle");
-   USART.Send_Line ("  'c' - Mostrar contador");
-   USART.Send_Line ("  'h' help");
-   USART.Send_Line ("");
-   USART.Send_String ("Listo> ");
+   PU.Send_Line ("");
+   PU.Send_Line ("USART2  a 115200 baudios");
+   PU.Send_Line ("");
+   PU.Send_Line ("Comandos disponibles:");
+   PU.Send_Line ("  '1' - LED");
+   PU.Send_Line ("  '0' - of LED");
+   PU.Send_Line ("  't' - Toggle");
+   PU.Send_Line ("  'c' - Mostrar contador");
+   PU.Send_Line ("  'h' help");
+   PU.Send_Line ("");
+   PU.Send_String ("Listo> ");
    
    
    loop
      
-      if USART.Data_Available then
-         Received := USART.Read_Char;
-         USART.Send_Char (Received);
+      if PU.Data_Available then
+         Received := PU.Read_Char;
+         PU.Send_Char (Received);
          
       
          case Received is
             when Character'Pos ('1') =>  
                LED_On;
-               USART.Send_Line (" LED encendido");
-               USART.Send_String ("Listo> ");
+               PU.Send_Line (" LED encendido");
+               PU.Send_String ("Listo> ");
                   
             when Character'Pos ('0') => 
                LED_Off;
-               USART.Send_Line (" LED apagado");
-               USART.Send_String ("Listo> ");
+               PU.Send_Line (" LED apagado");
+               PU.Send_String ("Listo> ");
                   
             when Character'Pos ('t') =>  
                LED_Toggle;
-               USART.Send_Line (" LED toggle");
-               USART.Send_String ("Listo> ");
+               PU.Send_Line (" LED toggle");
+               PU.Send_String ("Listo> ");
                   
             when Character'Pos ('c') => 
                Counter := Counter + 1;
-               USART.Send_String (" Contador: ");
+               PU.Send_String (" Contador: ");
                
                -- entero string
                declare
@@ -117,7 +118,7 @@ begin
                   Len : Integer := 0;
                begin
                   if Num = 0 then
-                     USART.Send_String ("0");
+                     PU.Send_String ("0");
                   else
                      while Num > 0 loop
                         Len := Len + 1;
@@ -125,31 +126,31 @@ begin
                         Num := Num / 10;
                      end loop;
                      for I in reverse 1 .. Len loop
-                        USART.Send_Char (Character'Pos (Temp (I)));
+                        PU.Send_Char (Character'Pos (Temp (I)));
                      end loop;
                   end if;
                end;
                
-               USART.Send_Line ("");
-               USART.Send_String ("Listo> ");
+               PU.Send_Line ("");
+               PU.Send_String ("Listo> ");
                   
             when Character'Pos ('h') | Character'Pos ('?') =>  
-               USART.Send_Line ("");
-               USART.Send_Line ("Comandos:");
-               USART.Send_Line ("  1 - Encender LED");
-               USART.Send_Line ("  0 - Apagar LED");
-               USART.Send_Line ("  t - Toggle LED");
-               USART.Send_Line ("  c - Mostrar contador");
-               USART.Send_Line ("  h/? - Mostrar ayuda");
-               USART.Send_String ("Listo> ");
+               PU.Send_Line ("");
+               PU.Send_Line ("Comandos:");
+               PU.Send_Line ("  1 - Encender LED");
+               PU.Send_Line ("  0 - Apagar LED");
+               PU.Send_Line ("  t - Toggle LED");
+               PU.Send_Line ("  c - Mostrar contador");
+               PU.Send_Line ("  h/? - Mostrar ayuda");
+               PU.Send_String ("Listo> ");
                   
             when 13 | 10 =>  -- Para hacer salto de linea le ponemos un null
            
                null;
                   
             when others =>
-               USART.Send_Line (" comando no reconocido (usa 'h' para ayuda)");
-               USART.Send_String ("Listo> ");
+               PU.Send_Line (" comando no reconocido (usa 'h' para ayuda)");
+               PU.Send_String ("Listo> ");
          end case;
       end if;
       

@@ -108,6 +108,26 @@ end Bit;
    end Config_Output;
 
 
+ procedure Config_Analog (GPIO_P : GPIO_Point ;Pull:GPIO_Pull:=No_Pull) is
+      P   : constant GPIO_Port := GPIO_P.Port;
+      Pin : constant Natural   := GPIO_P.Pin;
+       Val : Uint32;
+   begin
+      Enable_Clock (P);
+      MODER (P).all :=
+        (MODER (P).all and not Bit2_Mask (Pin))
+        or Bit2_Val (Pin, 3);
+
+         case Pull is
+         when No_Pull   => Val := Bit2_Val (Pin, 0);
+         when Pull_Up   => Val := Bit2_Val (Pin, 1);
+         when Pull_Down => Val := Bit2_Val (Pin, 2);
+      end case;
+      PUPDR (P).all :=
+        (PUPDR (P).all and not Bit2_Mask (Pin)) or Val;
+
+   end Config_Analog;
+
 
    procedure Config_Input (GPIO_P : GPIO_Point;
                            Pull   : GPIO_Pull := No_Pull) is
