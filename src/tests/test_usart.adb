@@ -1,27 +1,13 @@
 --763 
 with System;
+with stm32f446; use stm32f446;
 with USART;
 with USART_Driver; use USART_Driver;
 with Ada.Real_Time; use Ada.Real_Time;
+
 procedure Main is
    
-   -- Delay aproximado en milisegundos
-   procedure Delay_MS (Milliseconds : Natural) is
-   begin
-         delay 0.001 * Duration(Milliseconds);
---  -/
---       Cycles_Per_MS : constant := 16000;
---       C : Natural;
---    begin
---       for I in 1 .. Milliseconds loop
---          C := 0;
---          while C < Cycles_Per_MS loop
---             C := C + 1;
---          end loop;
---       end loop;
---    -/
-   end Delay_MS;
-   
+
    -- LED en PA5
    LED_Port : constant := 16#4002_0000#;  -- GPIOA
    LED_Pin  : constant := 5;
@@ -64,52 +50,52 @@ begin
    end;
    
   
-   PU.Initialize (115200);
+       Initialize (115200);
    
    Delay_MS (100);
    
    
-   PU.Send_Line ("");
+       Send_Line ("");
  
-   PU.Send_Line ("");
-   PU.Send_Line ("USART2  a 115200 baudios");
-   PU.Send_Line ("");
-   PU.Send_Line ("Comandos disponibles:");
-   PU.Send_Line ("  '1' - LED");
-   PU.Send_Line ("  '0' - of LED");
-   PU.Send_Line ("  't' - Toggle");
-   PU.Send_Line ("  'c' - Mostrar contador");
-   PU.Send_Line ("  'h' help");
-   PU.Send_Line ("");
-   PU.Send_String ("Listo> ");
+       Send_Line ("");
+       Send_Line ("USART2  a 115200 baudios");
+       Send_Line ("");
+       Send_Line ("Comandos disponibles:");
+       Send_Line ("  '1' - LED");
+       Send_Line ("  '0' - of LED");
+       Send_Line ("  't' - Toggle");
+       Send_Line ("  'c' - Mostrar contador");
+       Send_Line ("  'h' help");
+       Send_Line ("");
+       Send_String ("Listo> ");
    
    
    loop
      
-      if PU.Data_Available then
-         Received := PU.Read_Char;
-         PU.Send_Char (Received);
+      if     Data_Available then
+         Received :=     Read_Char;
+             Send_Char (Received);
          
       
          case Received is
             when Character'Pos ('1') =>  
                LED_On;
-               PU.Send_Line (" LED encendido");
-               PU.Send_String ("Listo> ");
+                   Send_Line (" LED encendido");
+                   Send_String ("Listo> ");
                   
             when Character'Pos ('0') => 
                LED_Off;
-               PU.Send_Line (" LED apagado");
-               PU.Send_String ("Listo> ");
+                   Send_Line (" LED apagado");
+                   Send_String ("Listo> ");
                   
             when Character'Pos ('t') =>  
                LED_Toggle;
-               PU.Send_Line (" LED toggle");
-               PU.Send_String ("Listo> ");
+                   Send_Line (" LED toggle");
+                   Send_String ("Listo> ");
                   
             when Character'Pos ('c') => 
                Counter := Counter + 1;
-               PU.Send_String (" Contador: ");
+                   Send_String (" Contador: ");
                
                -- entero string
                declare
@@ -118,7 +104,7 @@ begin
                   Len : Integer := 0;
                begin
                   if Num = 0 then
-                     PU.Send_String ("0");
+                         Send_String ("0");
                   else
                      while Num > 0 loop
                         Len := Len + 1;
@@ -126,31 +112,31 @@ begin
                         Num := Num / 10;
                      end loop;
                      for I in reverse 1 .. Len loop
-                        PU.Send_Char (Character'Pos (Temp (I)));
+                            Send_Char (Character'Pos (Temp (I)));
                      end loop;
                   end if;
                end;
                
-               PU.Send_Line ("");
-               PU.Send_String ("Listo> ");
+                   Send_Line ("");
+                   Send_String ("Listo> ");
                   
             when Character'Pos ('h') | Character'Pos ('?') =>  
-               PU.Send_Line ("");
-               PU.Send_Line ("Comandos:");
-               PU.Send_Line ("  1 - Encender LED");
-               PU.Send_Line ("  0 - Apagar LED");
-               PU.Send_Line ("  t - Toggle LED");
-               PU.Send_Line ("  c - Mostrar contador");
-               PU.Send_Line ("  h/? - Mostrar ayuda");
-               PU.Send_String ("Listo> ");
+                   Send_Line ("");
+                   Send_Line ("Comandos:");
+                   Send_Line ("  1 - Encender LED");
+                   Send_Line ("  0 - Apagar LED");
+                   Send_Line ("  t - Toggle LED");
+                   Send_Line ("  c - Mostrar contador");
+                   Send_Line ("  h/? - Mostrar ayuda");
+                   Send_String ("Listo> ");
                   
             when 13 | 10 =>  -- Para hacer salto de linea le ponemos un null
            
                null;
                   
             when others =>
-               PU.Send_Line (" comando no reconocido (usa 'h' para ayuda)");
-               PU.Send_String ("Listo> ");
+                   Send_Line (" comando no reconocido (usa 'h' para ayuda)");
+                   Send_String ("Listo> ");
          end case;
       end if;
       

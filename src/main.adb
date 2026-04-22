@@ -1,135 +1,151 @@
+--763 
+with System;
 with stm32f446; use stm32f446;
-with GPIO;      use GPIO;
-with ADC;       use ADC;
-with USART;            
+with USART;
 with USART_Driver; use USART_Driver;
 with Ada.Real_Time; use Ada.Real_Time;
 
 procedure Main is
-
-
-
-   --  Pines ADC
-   PA0 : constant GPIO_Point := (Port => PORT_A, Pin => 0);
-   PA1 : constant GPIO_Point := (Port => PORT_A, Pin => 1);
-
-   --  Resultados
-   Raw_CH0  : Uint32;
-   Raw_CH1  : Uint32;
-   mV_CH0   : Natural;
-   mV_CH1   : Natural;
-   Temp_Raw : Integer;
-   Temp_Int : Integer;
-   Temp_Dec : Integer;
-   Vref_mV  : Natural;
-
-
-
    
-   function To_String (V : Integer) return String is
-      S      : String (1 .. 12) := (others => ' ');
-      Idx    : Integer := 12;
-      Val    : Integer := V;
-      Neg    : Boolean := Val < 0;
+
+   -- LED en PA5
+   LED_Port : constant := 16#4002_0000#;  -- GPIOA
+   LED_Pin  : constant := 5;
+   LED_Mask : constant := 2**LED_Pin;
+   
+   GPIOA_BSRR : Uint32 with
+     Volatile,
+     Address => System'To_Address (LED_Port + 16#18#);
+   
+   procedure LED_On is
    begin
-      if Val = 0 then
-         return "0";
-      end if;
-      if Neg then Val := -Val; end if;
-      while Val > 0 loop
-         S (Idx) := Character'Val (Character'Pos ('0') + Val mod 10);
-         Idx := Idx - 1;
-         Val := Val / 10;
-      end loop;
-      if Neg then
-         S (Idx) := '-';
-         Idx := Idx - 1;
-      end if;
-      return S (Idx + 1 .. 12);
-   end To_String;
-
-   function To_String (V : Uint32) return String is
+      GPIOA_BSRR := LED_Mask;
+   end LED_On;
+   
+   procedure LED_Off is
    begin
-      return To_String (Integer (V));
-   end To_String;
-
-
-
+      GPIOA_BSRR := LED_Mask * 2**16;
+   end LED_Off;
+   
+   procedure LED_Toggle is
+      GPIOA_ODR : Uint32 with
+        Volatile,
+        Address => System'To_Address (LED_Port + 16#14#);
+   begin
+      GPIOA_ODR := GPIOA_ODR xor LED_Mask;
+   end LED_Toggle;
+   
+   Received : Uint8;
+   Counter : Integer := 0;
+   
 begin
-
-
--- -/
--- ********************************+
--- 
--- 
--- 
--- 
--- La primera parte de configuracion está mal
--- 
--- 
--- ****************************************
--- 
--- -/
-   ----------------------------------------
-   --  1. Configurar PA0 y PA1 como entrada analógica
-   --     MODER = 11 (analog mode)
-   ----------------------------------------
-    Initialize (115200);
-      Send_Line ("=============================");
-      Send_Line ("  STM32F446 ADC Test");
-      Send_Line ("  Nucleo-F446RE");
-      Send_Line ("=============================");
-    delay(0.1);
-
-   Config_Analog (PA0);
-   Config_Analog (PA1);
-
-   ----------------------------------------
-   --  2. Inicializar ADC1
-   ----------------------------------------
-   Init (ADC_1, Res_12bit, Right, Single);
-
-   Enable_Temp_Sensor;
-   Enable_Vrefint;
-
- 
-      Send_Line ("=============================");
-      Send_Line ("  STM32F446 ADC Test");
-      Send_Line ("  Nucleo-F446RE");
-      Send_Line ("=============================");
-  delay(0.1);
-
-
-   loop
-
+   -- Configurar LED como salida
+   declare
+      GPIOA_MODER : Uint32 with
+        Volatile,
+        Address => System'To_Address (LED_Port + 16#00#);
+   begin
+      GPIOA_MODER := GPIOA_MODER and not (3 * 2**(LED_Pin * 2));
+      GPIOA_MODER := GPIOA_MODER or (1 * 2**(LED_Pin * 2));  -- 01 = Sal
+   end;
+   
   
-      Raw_CH0 := Read    (ADC_1, 0);
-      mV_CH0  := Read_mV (ADC_1, 0);
-         Send_Line ("--- Lectura ADC ---");
-         Send_Line ("CH0 (PA0) raw : " & To_String (Raw_CH0));
-         Send_Line ("CH0 (PA0) mV  : " & To_String (mV_CH0));
-
-      Raw_CH1 := Read    (ADC_1, 1);
-      mV_CH1  := Read_mV (ADC_1, 1);
-         Send_Line ("CH1 (PA1) raw : " & To_String (Raw_CH1));
-         Send_Line ("CH1 (PA1) mV  : " & To_String (mV_CH1));
-
-      Temp_Raw := Read_Temperature;
-      Temp_Int := Temp_Raw / 100;
-      Temp_Dec := abs (Temp_Raw mod 100);
-         Send_Line ("Temp raw      : " & To_String (Temp_Raw));
-         Send_Line ("Temp          : " & To_String (Temp_Int)
-                                       & "."
-                                       & To_String (Temp_Dec)
-                                       & " C");
-
-      Vref_mV := Read_Vrefint_mV;
-         Send_Line ("Vrefint       : " & To_String (Vref_mV) & " mV");
-         Send_Line ("-----------------------------");
-
-      delay(5.0);
+       Initialize (115200);
+   
+   Delay_MS (100);
+   
+   
+       Send_Line ("");
+ 
+       Send_Line ("");
+       Send_Line ("USART2  a 115200 baudios");
+       Send_Line ("");
+       Send_Line ("Comandos disponibles:");
+       Send_Line ("  '1' - LED");
+       Send_Line ("  '0' - of LED");
+       Send_Line ("  't' - Toggle");
+       Send_Line ("  'c' - Mostrar contador");
+       Send_Line ("  'h' help");
+       Send_Line ("");
+       Send_String ("Listo> ");
+   
+   
+   loop
+     
+      if     Data_Available then
+         Received :=     Read_Char;
+             Send_Char (Received);
+         
       
-
+         case Received is
+            when Character'Pos ('1') =>  
+               LED_On;
+                   Send_Line (" LED encendido");
+                   Send_String ("Listo> ");
+                  
+            when Character'Pos ('0') => 
+               LED_Off;
+                   Send_Line (" LED apagado");
+                   Send_String ("Listo> ");
+                  
+            when Character'Pos ('t') =>  
+               LED_Toggle;
+                   Send_Line (" LED toggle");
+                   Send_String ("Listo> ");
+                  
+            when Character'Pos ('c') => 
+               Counter := Counter + 1;
+                   Send_String (" Contador: ");
+               
+               -- entero string
+               declare
+                  Num : Integer := Counter;
+                  Temp : String (1 .. 10);
+                  Len : Integer := 0;
+               begin
+                  if Num = 0 then
+                         Send_String ("0");
+                  else
+                     while Num > 0 loop
+                        Len := Len + 1;
+                        Temp (Len) := Character'Val (Character'Pos ('0') + (Num mod 10));
+                        Num := Num / 10;
+                     end loop;
+                     for I in reverse 1 .. Len loop
+                            Send_Char (Character'Pos (Temp (I)));
+                     end loop;
+                  end if;
+               end;
+               
+                   Send_Line ("");
+                   Send_String ("Listo> ");
+                  
+            when Character'Pos ('h') | Character'Pos ('?') =>  
+                   Send_Line ("");
+                   Send_Line ("Comandos:");
+                   Send_Line ("  1 - Encender LED");
+                   Send_Line ("  0 - Apagar LED");
+                   Send_Line ("  t - Toggle LED");
+                   Send_Line ("  c - Mostrar contador");
+                   Send_Line ("  h/? - Mostrar ayuda");
+                   Send_String ("Listo> ");
+                  
+            when 13 | 10 =>  -- Para hacer salto de linea le ponemos un null
+           
+               null;
+                  
+            when others =>
+                   Send_Line (" comando no reconocido (usa 'h' para ayuda)");
+                   Send_String ("Listo> ");
+         end case;
+      end if;
+      
+      -- Indicar que vive
+      LED_On;
+      Delay_MS (10);
+      LED_Off;
+      
+      Delay_MS (990);  -- delay
    end loop;
-
+   
 end Main;
