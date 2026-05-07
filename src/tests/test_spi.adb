@@ -5,7 +5,7 @@ with stm32f446;     use stm32f446;
 with Ada.Real_Time; use Ada.Real_Time;
 with SPI;           
 with SPI_driver; use SPI_driver;
-
+--Pin 11 =PA7=MOSI y 12=PA6=MISO  para Nucleo
 
 procedure Main is
  TX : Uint8 := 16#55#;
