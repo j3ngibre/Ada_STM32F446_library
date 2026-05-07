@@ -1,11 +1,18 @@
 with System;
 with stm32f446; use stm32f446;
-
+generic
+   SPI_Base    : Uint32;
+   GPIO_SCK    : Uint32;
+   GPIO_MISO   : Uint32;
+   GPIO_MOSI   : Uint32;
+   GPIO_CS     : Uint32;
+   SCK_Pin     : Natural;
+   MISO_Pin    : Natural;
+   MOSI_Pin    : Natural;
+   CS_Pin      : Natural;
 package SPI is
 
-   -- =========================================
-   -- API pública
-   -- =========================================
+
    procedure Initialize;
 --envieyrecibe
    function  Transfer_8  (Data : Uint8)  return Uint8;
@@ -28,83 +35,121 @@ package SPI is
    procedure Set_Speed_Low;   -- ≤400 kHz para init SD
    procedure Set_Speed_High;  -- máxima velocidad
 
-   -- Control CS (Chip Select) manual
+   -- Control CS  manual
    procedure CS_Low;
    procedure CS_High;
 
-   -- Registros hardware
-   -- =========================================
-   -- RCC
-   -- =========================================
+   
+ 
 
-   SPI1_Base : Uint32 := 16#4001_3000#;
+private
+   function SPI_AF(SPIBase  : Uint32;GPIOBase : Uint32;Pin       : Natural) return Uint32 ;
+   function GPIO_To_AHB1_Bit (Base : Uint32) return Uint32 is
+    (case Base is
+        when GPIOA => 2**GPIOAEN,
+        when GPIOB => 2**GPIOBEN,
+        when GPIOC => 2**GPIOCEN,
+        when GPIOD => 2**GPIODEN,
+        when GPIOE => 2**GPIOEEN,
+        when GPIOF => 2**GPIOFEN,
+        when GPIOG => 2**GPIOGEN,
+        when GPIOH => 2**GPIOHEN,
+        when others => 0);
+   
+      function SPI_To_APB_Bit (Base : Uint32) return Uint32 is
+      (case Base is
+        when SPI1_Base => 2**SPI1EN,
+        when SPI2_Base => 2**SPI2EN,
+        when SPI3_Base => 2**SPI3EN,
+        when SPI4_Base => 2**SPI4EN,
+        when others    => 0);
+
+
+
+
+
+      
+    
+
+
+ 
    RCC_AHB1ENR : Uint32 with
       Volatile, Address => System'To_Address (RCC + 16#30#);
    RCC_APB2ENR : Uint32 with
       Volatile, Address => System'To_Address (RCC + 16#44#);  -- SPI1 en APB2
 
+    RCC_APB1ENR : Uint32 with
+      Volatile, Address => System'To_Address (RCC + 16#40#);
+      
    -- =========================================
    -- GPIOA (PA5=SCK, PA6=MISO, PA7=MOSI)
    -- =========================================
-   GPIOA_MODER : Uint32 with
-      Volatile, Address => System'To_Address (GPIOA + 16#00#);
-   GPIOA_OTYPER : Uint32 with
-      Volatile, Address => System'To_Address (GPIOA + 16#04#);
-   GPIOA_OSPEEDR : Uint32 with
-      Volatile, Address => System'To_Address (GPIOA + 16#08#);
-   GPIOA_PUPDR : Uint32 with
-      Volatile, Address => System'To_Address (GPIOA + 16#0C#);
-   GPIOA_ODR : Uint32 with
-      Volatile, Address => System'To_Address (GPIOA + 16#14#);
-   GPIOA_AFRL : Uint32 with
-      Volatile, Address => System'To_Address (GPIOA + 16#20#);
+   GPIO_SCK_MODER : Uint32 with
+      Volatile, Address => System'To_Address (GPIO_SCK + 16#00#);
+   GPIO_SCK_OTYPER : Uint32 with
+      Volatile, Address => System'To_Address (GPIO_SCK + 16#04#);
+   GPIO_SCK_OSPEEDR : Uint32 with
+      Volatile, Address => System'To_Address (GPIO_SCK + 16#08#);
+   GPIO_SCK_PUPDR : Uint32 with
+      Volatile, Address => System'To_Address (GPIO_SCK+ 16#0C#);
+   GPIO_SCK_ODR : Uint32 with
+      Volatile, Address => System'To_Address (GPIO_SCK + 16#14#);
+   GPIO_SCK_AFRL : Uint32 with
+      Volatile, Address => System'To_Address (GPIO_SCK + 16#20#);
+   GPIO_SCK_AFRH : Uint32 with
+      Volatile, Address => System'To_Address (GPIO_SCK + 16#24#);
 
-   -- =========================================
-   -- GPIOB (PB6=CS)
-   -- =========================================
-   GPIOB_MODER : Uint32 with
-      Volatile, Address => System'To_Address (GPIOB + 16#00#);
-   GPIOB_OSPEEDR : Uint32 with
-      Volatile, Address => System'To_Address (GPIOB + 16#08#);
-   GPIOB_PUPDR : Uint32 with
-      Volatile, Address => System'To_Address (GPIOB + 16#0C#);
-   GPIOB_ODR : Uint32 with
-      Volatile, Address => System'To_Address (GPIOB + 16#14#);
+     GPIO_MISO_MODER : Uint32 with
+      Volatile, Address => System'To_Address (GPIO_MISO + 16#00#);
+   GPIO_MISO_OTYPER : Uint32 with
+      Volatile, Address => System'To_Address (GPIO_MISO + 16#04#);
+   GPIO_MISO_OSPEEDR : Uint32 with
+      Volatile, Address => System'To_Address (GPIO_MISO + 16#08#);
+   GPIO_MISO_PUPDR : Uint32 with
+      Volatile, Address => System'To_Address (GPIO_MISO + 16#0C#);
+   GPIO_MISO_ODR : Uint32 with
+      Volatile, Address => System'To_Address (GPIO_MISO + 16#14#);
+   GPIO_MISO_AFRL : Uint32 with
+      Volatile, Address => System'To_Address (GPIO_MISO + 16#20#);
+      GPIO_MISO_AFRH : Uint32 with
+      Volatile, Address => System'To_Address (GPIO_MISO + 16#24#);
 
-   -- =========================================
-   -- SPI1
-   -- =========================================
-   SPI1_CR1 : Uint32 with
-      Volatile, Address => System'To_Address (SPI1_Base + 16#00#);
-   SPI1_CR2 : Uint32 with
-      Volatile, Address => System'To_Address (SPI1_Base + 16#04#);
-   SPI1_SR : Uint32 with
-      Volatile, Address => System'To_Address (SPI1_Base + 16#08#);
-   SPI1_DR : Uint32 with
-      Volatile, Address => System'To_Address (SPI1_Base + 16#0C#);
+  GPIO_MOSI_MODER : Uint32 with
+      Volatile, Address => System'To_Address (GPIO_MOSI + 16#00#);
+   GPIO_MOSI_OTYPER : Uint32 with
+      Volatile, Address => System'To_Address (GPIO_MOSI + 16#04#);
+   GPIO_MOSI_OSPEEDR : Uint32 with
+      Volatile, Address => System'To_Address (GPIO_MOSI + 16#08#);
+   GPIO_MOSI_PUPDR : Uint32 with
+      Volatile, Address => System'To_Address (GPIO_MOSI + 16#0C#);
+   GPIO_MOSI_ODR : Uint32 with
+      Volatile, Address => System'To_Address (GPIO_MOSI + 16#14#);
+   GPIO_MOSI_AFRL : Uint32 with
+      Volatile, Address => System'To_Address (GPIO_MOSI + 16#20#);
+   GPIO_MOSI_AFRH : Uint32 with
+      Volatile, Address => System'To_Address (GPIO_MOSI + 16#24#);
 
-private
 
-   -- Bits de CR1
-   SPI_CR1_CPHA    : constant := 0;
-   SPI_CR1_CPOL    : constant := 1;
-   SPI_CR1_MSTR    : constant := 2;
-   SPI_CR1_BR0     : constant := 3;   -- Baudrate bits [5:3]
-   SPI_CR1_BR1     : constant := 4;
-   SPI_CR1_BR2     : constant := 5;
-   SPI_CR1_SPE     : constant := 6;   -- SPI Enable
-   SPI_CR1_LSBFIRST: constant := 7;
-   SPI_CR1_SSI     : constant := 8;
-   SPI_CR1_SSM     : constant := 9;   -- Software Slave Management
-   SPI_CR1_DFF     : constant := 11;  -- Data Frame Format (0=8bit, 1=16bit)
 
-   -- Bits de SR
-   SPI_SR_RXNE     : constant := 0;   -- Rx buffer not empty
-   SPI_SR_TXE      : constant := 1;   -- Tx buffer empty
-   SPI_SR_BSY      : constant := 7;   -- Busy
+   GPIO_CS_MODER : Uint32 with
+      Volatile, Address => System'To_Address (GPIO_CS + 16#00#);
+   GPIO_CS_OSPEEDR : Uint32 with
+      Volatile, Address => System'To_Address (GPIO_CS + 16#08#);
+   GPIO_CS_PUPDR : Uint32 with
+      Volatile, Address => System'To_Address (GPIO_CS + 16#0C#);
+   GPIO_CS_ODR : Uint32 with
+      Volatile, Address => System'To_Address (GPIO_CS + 16#14#);
 
-   -- CS pin: PB6
-   CS_Pin : constant := 6;
+  --POR AQUI 
+   SPI_CR1 : Uint32 with
+      Volatile, Address => System'To_Address (SPI_Base + 16#00#);
+   SPI_CR2 : Uint32 with
+      Volatile, Address => System'To_Address (SPI_Base + 16#04#);
+   SPI_SR : Uint32 with
+      Volatile, Address => System'To_Address (SPI_Base + 16#08#);
+   SPI_DR : Uint32 with
+      Volatile, Address => System'To_Address (SPI_Base + 16#0C#);
+
 
    -- Prescalers para APB2=84MHz
    -- BR=000 → /2   = 42 MHz
@@ -114,5 +159,8 @@ private
    -- BR=111 → /256 = 328 kHz  ← init SD seguro
    BR_DIV256 : constant Uint32 := 16#38#;  -- 111 en bits [5:3] = 328 kHz
    BR_DIV4   : constant Uint32 := 16#08#;  -- 001 en bits [5:3] = 21 MHz
+
+
+
 
 end SPI;

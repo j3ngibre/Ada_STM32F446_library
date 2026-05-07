@@ -17,6 +17,10 @@ package stm32f446 is
    GPIOG : constant := 16#4002_1800#;
    GPIOH : constant := 16#4002_1C00#;
   
+   SPI1_Base : constant := 16#4001_3000#;
+   SPI2_Base : constant := 16#4000_3800#;
+   SPI3_Base : constant := 16#4000_3C00#;
+   SPI4_Base : constant := 16#4001_3400#;
    I2C1_Base : constant := 16#4000_5400#;
    I2C2_Base : constant := 16#4000_5800#;
    I2C3_Base : constant := 16#4000_5C00#; 
@@ -279,5 +283,35 @@ ADC_DR_Offset    : constant := 16#4C#;
    PCLK1_MHz : constant := 42;
    I2C_AF : constant :=4;
    I2C_SPEED  : constant  := 100_000;
+
+--SPI
+
+
+
+   -- Bits de CR1
+   SPI_CR1_CPHA    : constant := 0;
+   SPI_CR1_CPOL    : constant := 1;
+   SPI_CR1_MSTR    : constant := 2;
+   SPI_CR1_BR0     : constant := 3;   -- Baudrate bits [5:3]
+   SPI_CR1_BR1     : constant := 4;
+   SPI_CR1_BR2     : constant := 5;
+   SPI_CR1_SPE     : constant := 6;   -- SPI Enable
+   SPI_CR1_LSBFIRST: constant := 7;
+   SPI_CR1_SSI     : constant := 8;
+   SPI_CR1_SSM     : constant := 9;   -- Software Slave Management
+   SPI_CR1_DFF     : constant := 11;  -- Data Frame Format (0=8bit, 1=16bit)
+
+   -- Bits de SR
+   SPI_SR_RXNE     : constant := 0;   -- Rx buffer not empty
+   SPI_SR_TXE      : constant := 1;   -- Tx buffer empty
+   SPI_SR_BSY      : constant := 7;   -- Busy
+
+   SPI1_EN:constant:=12;
+   SPI2_EN:constant:=14;
+   SPI3_EN:constant:=15;
+   SPI4_EN:constant:=13;
+   
+
+
 
    end stm32f446;

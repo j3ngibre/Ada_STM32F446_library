@@ -13,7 +13,7 @@ procedure Main is
   Next_Time : Time := Clock;
 
 begin 
---Pin 11 =PA7=MOSI y 12=PA6=MISO  para Nucleo
+
 
  
    USART_Driver.Initialize (115200);

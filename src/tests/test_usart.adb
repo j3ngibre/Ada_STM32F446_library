@@ -52,7 +52,7 @@ begin
   
        Initialize (115200);
    
-   Delay_MS (100);
+   delay(0.1);
    
    
        Send_Line ("");
@@ -97,7 +97,6 @@ begin
                Counter := Counter + 1;
                    Send_String (" Contador: ");
                
-               -- entero string
                declare
                   Num : Integer := Counter;
                   Temp : String (1 .. 10);
@@ -142,10 +141,11 @@ begin
       
       -- Indicar que vive
       LED_On;
-      Delay_MS (10);
+   
+      delay(0.01);
       LED_Off;
       
-      Delay_MS (990);  -- delay
+      delay(1.0);  
    end loop;
    
 end Main;
