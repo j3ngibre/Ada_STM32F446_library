@@ -82,9 +82,7 @@ package body W5500 is
       return Read_Reg (REG_PHYCFGR, COMMON_RD);
    end Read_PHYCFGR;
 
-   -- =========================================================
-   --  Configuracion de red
-   -- =========================================================
+ 
 
    procedure Set_Gateway (GW : Uint8_Array) is
    begin
@@ -116,9 +114,7 @@ package body W5500 is
       Read_Buf (REG_SIPR, COMMON_RD, IP);
    end Get_IP;
 
-   -- =========================================================
-   --  Socket 0 TCP
-   -- =========================================================
+
 
    procedure Socket0_Open_TCP (Local_Port : Uint16) is
    begin
@@ -786,4 +782,324 @@ begin
    USART_Driver.Send_Line ("HTTP: conexion cerrada");
 
 end HTTP_Server;
+
+
+
+
+procedure HTTP_Server_mDNS (Port : Uint16 := 80 ; Hostname:String) is
+
+   HTML : constant String :=
+      "HTTP/1.1 200 OK" & ASCII.CR & ASCII.LF &
+      "Content-Type: text/html; charset=utf-8" & ASCII.CR & ASCII.LF &
+      "Connection: close" & ASCII.CR & ASCII.LF &
+      "Content-Length: 31" & ASCII.CR & ASCII.LF &
+      ASCII.CR & ASCII.LF &
+      "<h1>Pagina de prueba</h1>";
+   --  Content-Length = 25 chars de <h1>Pagina de prueba</h1>
+   --  Ajusta si cambias el body
+
+   HTML_Buf : Uint8_Array (1 .. HTML'Length);
+   Status   : Uint8;
+   Timeout  : Natural;
+   Got_Data : Boolean;
+
+begin
+   --  Convertir String a Uint8_Array
+   for I in HTML'Range loop
+      HTML_Buf (I - HTML'First + 1) := Character'Pos (HTML (I));
+   end loop;
+
+   USART_Driver.Send_Line ("HTTP: escuchando en puerto " &
+      Integer'Image (Natural (Port)));
+
+   Socket0_Listen (Port);
+
+   --  Esperar conexión entrante (SOCK_ESTABLISHED = 0x17)
+   Timeout := 0;
+   loop
+      Status := Socket0_Status;
+      exit when Status = SOCK_ESTABLISHED;
+      exit when Timeout > 30_000;   -- 30 segundos máximo
+      Timeout := Timeout + 1;
+      mDNS_Loop(Hostname);
+      delay until Clock + Milliseconds (1);
+   end loop;
+
+   if Socket0_Status /= SOCK_ESTABLISHED then
+      USART_Driver.Send_Line ("HTTP: timeout esperando conexion");
+      Socket0_Close;
+      return;
+   end if;
+
+   USART_Driver.Send_Line ("HTTP: cliente conectado");
+
+   --  Esperar a recibir la petición GET (o cualquier dato)
+   Got_Data := False;
+   Timeout  := 0;
+   loop
+      if Socket0_Recv (HTTP_Buffer'Length) > 0 then
+         Got_Data := True;
+         exit;
+      end if;
+      --  El cliente puede cerrar tras enviar (CLOSE_WAIT)
+      Status := Socket0_Status;
+      exit when Status = SOCK_CLOSE_WAIT;
+      exit when Timeout > 5000;
+      Timeout := Timeout + 1;
+      delay until Clock + Milliseconds (1);
+   end loop;
+
+   if Got_Data then
+      --  Imprimir el método recibido (primeros bytes = "GET / HTTP/1.1")
+      USART_Driver.Send_Line ("HTTP: peticion recibida");
+   end if;
+
+   --  Enviar respuesta
+   Socket0_Send (HTML_Buf);
+   USART_Driver.Send_Line ("HTTP: respuesta enviada");
+
+   --  Cerrar conexión limpiamente
+   delay until Clock + Milliseconds (10);
+   Socket0_Close;
+   USART_Driver.Send_Line ("HTTP: conexion cerrada");
+
+end HTTP_Server_mDNS;
+
+
+
+procedure Socket2_Open_mDNS is
+   --  IP multicast mDNS: 224.0.0.251
+   MDNS_IP : constant Uint8_Array (1 .. 4) := (224, 0, 0, 251);
+   --  MAC multicast derivada de IP: 01:00:5E:00:00:FB
+   MDNS_MAC : constant Uint8_Array (1 .. 6) :=
+      (16#01#, 16#00#, 16#5E#, 16#00#, 16#00#, 16#FB#);
+begin
+   Write_Reg   (Sn_CR,   S2_REG_WR, CR_CLOSE);
+   delay until Clock + Milliseconds (5);
+
+   --  UDP multicast: Sn_MR = MR_UDP | bit MULTICAST (bit 7) = 0x82
+   Write_Reg   (Sn_MR,   S2_REG_WR, 16#82#);
+
+   --  Puerto local 5353
+   Write_Reg16 (Sn_PORT, S2_REG_WR, 5353);
+
+   --  MAC multicast destino en Sn_DHAR antes de OPEN
+   Write_Buf   (Sn_DHAR, S2_REG_WR, MDNS_MAC);
+
+   --  IP multicast destino
+   Write_Buf   (Sn_DIPR, S2_REG_WR, MDNS_IP);
+
+   --  Puerto destino 5353
+   Write_Reg16 (Sn_DPORT, S2_REG_WR, 5353);
+
+   Write_Reg   (Sn_CR,   S2_REG_WR, CR_OPEN);
+   delay until Clock + Milliseconds (10);
+end Socket2_Open_mDNS;
+
+procedure Socket2_Close is
+begin
+   Write_Reg (Sn_CR, S2_REG_WR, CR_CLOSE);
+end Socket2_Close;
+
+
+procedure mDNS_Send_Response (Query_ID : Uint16; Hostname : String) is
+   MDNS_IP  : constant Uint8_Array (1 .. 4) := (224, 0, 0, 251);
+   MDNS_MAC : constant Uint8_Array (1 .. 6) :=
+      (16#01#, 16#00#, 16#5E#, 16#00#, 16#00#, 16#FB#);
+   My_IP    : constant Uint8_Array (1 .. 4) := (192, 168, 1, 180);
+
+   Name_Buf : Uint8_Array (1 .. 64);
+   Name_Len : Natural;
+
+   B      : Uint8_Array (1 .. 128) := (others => 0);
+   Off    : Natural := 1;
+   TX_Ptr : Uint16;
+
+   procedure Put16 (V : Uint16) is
+   begin
+      B (Off) := Uint8 (V / 256); B (Off + 1) := Uint8 (V mod 256);
+      Off := Off + 2;
+   end Put16;
+
+   procedure Put32 (V : Uint32) is
+   begin
+      B (Off)     := Uint8 ((V / 16#1000000#) mod 256);
+      B (Off + 1) := Uint8 ((V /    16#10000#) mod 256);
+      B (Off + 2) := Uint8 ((V /      16#100#) mod 256);
+      B (Off + 3) := Uint8 ( V                 mod 256);
+      Off := Off + 4;
+   end Put32;
+
+begin
+   --  Codificar el hostname ("stm32.local" -> 05 stm32 05 local 00)
+   Encode_DNS_Name (Hostname, Name_Buf, Name_Len);
+
+   --  === Cabecera DNS (12 bytes) ===
+   Put16 (Query_ID);   -- ID
+   Put16 (16#8400#);   -- Flags: QR=1, AA=1
+   Put16 (0);          -- QDCOUNT = 0
+   Put16 (1);          -- ANCOUNT = 1
+   Put16 (0);          -- NSCOUNT = 0
+   Put16 (0);          -- ARCOUNT = 0
+
+   --  === Answer record ===
+   for I in 1 .. Name_Len loop
+      B (Off) := Name_Buf (I); Off := Off + 1;
+   end loop;
+
+   Put16 (1);          -- TYPE  = A
+   Put16 (16#8001#);   -- CLASS = IN | FLUSH
+   Put32 (120);        -- TTL   = 120s
+   Put16 (4);          -- RDLENGTH = 4
+
+   B (Off) := My_IP (1); B (Off + 1) := My_IP (2);
+   B (Off + 2) := My_IP (3); B (Off + 3) := My_IP (4);
+   Off := Off + 4;
+
+   --  Enviar por socket 2 UDP multicast
+   Write_Buf   (Sn_DHAR,  S2_REG_WR, MDNS_MAC);
+   Write_Buf   (Sn_DIPR,  S2_REG_WR, MDNS_IP);
+   Write_Reg16 (Sn_DPORT, S2_REG_WR, 5353);
+
+   TX_Ptr := Read_Reg16 (Sn_TX_WR, S2_REG_RD);
+   Write_Buf   (TX_Ptr and 16#07FF#, S2_TX_WR, B (1 .. Off - 1));
+   Write_Reg16 (Sn_TX_WR, S2_REG_WR, TX_Ptr + Uint16 (Off - 1));
+   Write_Reg   (Sn_CR,    S2_REG_WR, CR_SEND);
+
+   delay until Clock + Milliseconds (5);
+   Write_Reg (16#0002#, S2_REG_WR, 16#FF#);
+
+end mDNS_Send_Response;
+
+
+
+function mDNS_Parse_Query return Boolean is
+   --  En UDP W5500 RX hay 8 bytes de cabecera: IP(4)+Port(2)+Size(2)
+   --  El paquete DNS empieza en offset 9
+   DNS    : Natural := 9;
+   Flags  : Uint16;
+   Qdcount : Uint16;
+   Off    : Natural;
+   Len    : Uint8;
+
+   --  Nombre esperado codificado: 05 stm32 05 local 00
+   Target : constant Uint8_Array (1 .. 13) :=
+      (16#05#,
+       16#73#, 16#74#, 16#6D#, 16#33#, 16#32#,
+       16#05#,
+       16#6C#, 16#6F#, 16#63#, 16#61#, 16#6C#,
+       16#00#);
+begin
+   if MDNS_Buffer'Length < DNS + 12 then
+      return False;
+   end if;
+
+   --  Verificar QR=0 (es una query, no respuesta)
+   Flags := Uint16 (MDNS_Buffer (DNS + 2)) * 256 +
+            Uint16 (MDNS_Buffer (DNS + 3));
+   if (Flags and 16#8000#) /= 0 then
+      return False;   -- es una respuesta, ignorar
+   end if;
+
+   Qdcount := Uint16 (MDNS_Buffer (DNS + 4)) * 256 +
+              Uint16 (MDNS_Buffer (DNS + 5));
+   if Qdcount = 0 then
+      return False;
+   end if;
+
+   --  Offset al inicio del QNAME (justo después de los 12 bytes de cabecera)
+   Off := DNS + 12;
+
+   --  Comparar byte a byte con el nombre objetivo
+   for I in Target'Range loop
+      exit when Off > MDNS_Buffer'Length;
+      if MDNS_Buffer (Off) /= Target (I) then
+         return False;
+      end if;
+      Off := Off + 1;
+   end loop;
+
+   --  Verificar QTYPE = A (0x0001)
+   if Off + 1 > MDNS_Buffer'Length then
+      return False;
+   end if;
+   declare
+      Qtype : constant Uint16 :=
+         Uint16 (MDNS_Buffer (Off) and 16#7F#) * 256 +
+         Uint16 (MDNS_Buffer (Off + 1));
+      --  El bit QU (bit 15 de QCLASS) se ignora enmascarando
+   begin
+      if Qtype /= 1 then
+         return False;   -- solo respondemos a tipo A
+      end if;
+   end;
+
+   return True;
+end mDNS_Parse_Query;
+
+
+
+procedure mDNS_Announce (Hostname:String )is
+begin
+   Socket2_Open_mDNS;
+   --  Enviar dos veces con 250ms de separación (RFC 6762)
+   mDNS_Send_Response (0, Hostname);
+   delay until Clock + Milliseconds (250);
+   mDNS_Send_Response (0 ,Hostname);
+   USART_Driver.Send_Line ("mDNS: anunciado  como  " & Hostname);
+end mDNS_Announce;
+
+
+
+procedure mDNS_Loop (Hostname: String) is
+   RX_Size  : Uint16;
+   RX_Ptr   : Uint16;
+   Read_Len : Natural;
+   Query_ID : Uint16;
+begin
+   RX_Size := Read_Reg16 (Sn_RX_RSR, S2_REG_RD);
+   if RX_Size = 0 then
+      return;
+   end if;
+
+   Read_Len := Natural'Min (Natural (RX_Size), MDNS_Buffer'Length);
+   RX_Ptr   := Read_Reg16 (Sn_RX_RD, S2_REG_RD);  -- Sn_RX_RD offset 0x0028
+   Read_Buf (RX_Ptr, S2_RX_RD, MDNS_Buffer (1 .. Read_Len));
+   Write_Reg16 (Sn_RX_RD,  S2_REG_WR,
+                RX_Ptr + Uint16 (Read_Len));
+   Write_Reg   (Sn_CR, S2_REG_WR, CR_RECV);
+
+   if mDNS_Parse_Query then
+      --  Extraer ID de la query (bytes 9-10 del buffer = offset DNS)
+      Query_ID := Uint16 (MDNS_Buffer (9)) * 256 +
+                  Uint16 (MDNS_Buffer (10));
+      mDNS_Send_Response (Query_ID, Hostname);
+      USART_Driver.Send_Line ("mDNS: respondido a query");
+   end if;
+end mDNS_Loop;
+
+
+procedure Encode_DNS_Name (Hostname    :     String;
+                            Result      : out Uint8_Array;
+                            Result_Len  : out Natural) is
+   Off         : Natural := Result'First;
+   Label_Start : Natural := Hostname'First;
+   Len         : Natural;
+begin
+   for I in Hostname'First .. Hostname'Last + 1 loop
+      if I = Hostname'Last + 1 or else Hostname (I) = '.' then
+         Len := I - Label_Start;
+         Result (Off) := Uint8 (Len);
+         Off := Off + 1;
+         for J in Label_Start .. I - 1 loop
+            Result (Off) := Character'Pos (Hostname (J));
+            Off := Off + 1;
+         end loop;
+         Label_Start := I + 1;
+      end if;
+   end loop;
+   Result (Off) := 0;
+   Result_Len := Off - Result'First + 1;
+end Encode_DNS_Name;
+
 end W5500;

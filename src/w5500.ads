@@ -44,7 +44,14 @@ package W5500 is
 
    procedure HTTP_Server (Port : Uint16 := 80);
 --  Bloquea esperando una conexión HTTP, responde y cierra.
+   procedure HTTP_Server_mDNS (Port : Uint16 := 80 ; Hostname:String);
+   --IUGAL  Q EL ANTERIOR PERO ANUNCIA MDNS 
 
+procedure mDNS_Announce (Hostname:string);
+--  Anuncia stm32.local al arrancar 
+
+procedure mDNS_Loop(Hostname :string);
+--  Llamar periódicamente desde main: escucha queries y responde
 
                      
 private
@@ -141,4 +148,20 @@ procedure Socket0_Send   (Data : Uint8_Array);
 function  Socket0_Recv   (Max_Len : Natural) return Natural;
 
 --  Devuelve cuántos bytes leyó en HTTP_Buffer
+
+--  Socket 2 para mDNS (multicast UDP puerto 5353)
+S2_REG_RD  : constant Uint8  := 16#48#;
+S2_REG_WR  : constant Uint8  := 16#4C#;
+S2_TX_WR   : constant Uint8  := 16#54#;
+S2_RX_RD   : constant Uint8  := 16#58#;
+
+MDNS_Buffer : Uint8_Array (1 .. 256);
+
+procedure Socket2_Open_mDNS;
+procedure Socket2_Close;
+procedure mDNS_Send_Response (Query_ID : Uint16 ;Hostname:string);
+function  mDNS_Parse_Query    return Boolean;
+--  Devuelve True si la query es para "stm32.local"
+procedure Encode_DNS_Name (Hostname : String ; Result      : out Uint8_Array;Result_Len  : out Natural) ;
+--  Uint8_Array debe ser "array (Natural range <>) of Uint8"
 end W5500;
