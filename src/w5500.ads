@@ -35,6 +35,12 @@ package W5500 is
    SOCK_IPRAW       : constant Uint8 := 16#42#;
 
       procedure Print_Hex (Label : String; Val : Uint8);
+
+   function Resolve_DNS (Hostname   : String;
+                      DNS_Server : Uint8_Array;
+                      IP_Out     : out Uint8_Array;
+                      Timeout_MS : Natural := 3000) return Boolean;
+                     
 private
 
    procedure Write_Reg  (Addr : Uint16; Block : Uint8; Data : Uint8);
@@ -99,4 +105,23 @@ private
    procedure Send_Ping_Request  (Dest_IP : Uint8_Array; Seq : Uint16);
    function  Receive_Ping_Reply (Timeout_MS : Natural) return Boolean;
    Sn_DHAR : constant Uint16 := 16#0006#;
+--PAra dns
+
+SOCK_UDP     : constant Uint8  := 16#22#;
+
+DNS_Buffer   : Uint8_Array (1 .. 256);
+
+procedure Socket1_Open_UDP  (Local_Port : Uint16);
+procedure Socket1_Close;
+function  Socket1_Status    return Uint8;
+
+
+S1_REG_RD : constant Uint8 := 16#28#;
+S1_REG_WR : constant Uint8 := 16#2C#;
+S1_TX_WR  : constant Uint8 := 16#34#;
+S1_RX_RD  : constant Uint8 := 16#38#;
+S1_TX_FSR : constant Uint16 := 16#0020#;
+S1_TX_WR_R: constant Uint16 := 16#0024#;
+S1_RX_RSR : constant Uint16 := 16#0026#;
+S1_RX_RD_R: constant Uint16 := 16#0028#;
 end W5500;

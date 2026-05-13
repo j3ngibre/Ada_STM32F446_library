@@ -11,6 +11,9 @@ procedure Main is
    My_IP  : Uint8_Array (1 .. 4) := (192, 168, 1, 180);
    My_SN  : Uint8_Array (1 .. 4) := (255, 255, 255, 0);
    My_GW  : Uint8_Array (1 .. 4) := (192, 168, 1, 1);
+   Google  : Uint8_Array (1 .. 4) := (8, 8, 8, 8);
+   DNS_IP  : Uint8_Array (1 .. 4);
+   DNS_Server : constant Uint8_Array (1 .. 4) := (192, 168, 1, 1);
 
    Server_IP   : Uint8_Array (1 .. 4) := (192, 168, 1, 1);
    Server_Port : constant Uint16 := 80;
@@ -118,7 +121,7 @@ begin
    USART_Driver.Send_Line ("Red configurada");
    Verify_Configuration;
 
-   if W5500.Ping (My_GW, 3000) then
+   if W5500.Ping (Google, 3000) then
       USART_Driver.Send_Line ("Gateway alcanzable");
    else
       USART_Driver.Send_Line ("Gateway no responde");
@@ -169,9 +172,18 @@ begin
    W5500.Socket0_Close;
    USART_Driver.Send_Line ("Socket cerrado");
 
-   loop
-      Next_Time := Clock + Milliseconds (1000);
-      delay until Next_Time;
-   end loop;
 
+
+
+    if Resolve_DNS ("uhu.es", DNS_Server, DNS_IP) then --150.214.167.13
+      if Ping (DNS_IP) then
+       Print_IP ("IP de url: ", DNS_IP);
+         USART_Driver.Send_Line (" Dns funcional y destino alcanzable");
+      end if;
+   end if;
+
+ loop
+     Next_Time := Clock + Milliseconds (1000);
+      delay until Next_Time;
+  end loop;
 end Main;

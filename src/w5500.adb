@@ -376,4 +376,271 @@ end Receive_Ping_Reply;
       return Success;
    end Ping;
 
+
+   -- =========================================================
+--  Socket 1 UDP (para DNS)
+-- =========================================================
+
+procedure Socket1_Open_UDP (Local_Port : Uint16) is
+   T : constant Time := Clock + Milliseconds (10);
+begin
+   Write_Reg   (Sn_CR,   S1_REG_WR, CR_CLOSE);
+   delay until T;
+   Write_Reg   (Sn_MR,   S1_REG_WR, MR_UDP);
+   Write_Reg16 (Sn_PORT, S1_REG_WR, Local_Port);
+   Write_Reg   (Sn_CR,   S1_REG_WR, CR_OPEN);
+   delay until Clock + Milliseconds (10);
+end Socket1_Open_UDP;
+
+procedure Socket1_Close is
+begin
+   Write_Reg (Sn_CR, S1_REG_WR, CR_CLOSE);
+end Socket1_Close;
+
+function Socket1_Status return Uint8 is
+begin
+   return Read_Reg (Sn_SR, S1_REG_RD);
+end Socket1_Status;
+
+-- =========================================================
+--  DNS
+-- =========================================================
+
+function Resolve_DNS (Hostname   : String;
+                      DNS_Server : Uint8_Array;
+                      IP_Out     : out Uint8_Array;
+                      Timeout_MS : Natural := 3000) return Boolean is
+
+   --  Construye la sección QNAME del DNS a partir del hostname
+   --  "www.google.com" -> 03 77 77 77 06 67 6F 6F 67 6C 65 03 63 6F 6D 00
+   procedure Encode_Name (Buf    : in out Uint8_Array;
+                           Offset : in out Natural;
+                           Name   : String) is
+      Label_Start : Natural := Name'First;
+      Len         : Natural;
+   begin
+      for I in Name'First .. Name'Last + 1 loop
+         if I = Name'Last + 1 or else Name (I) = '.' then
+            Len := I - Label_Start;
+            Buf (Offset) := Uint8 (Len);
+            Offset := Offset + 1;
+            for J in Label_Start .. I - 1 loop
+               Buf (Offset) := Character'Pos (Name (J));
+               Offset := Offset + 1;
+            end loop;
+            Label_Start := I + 1;
+         end if;
+      end loop;
+      Buf (Offset) := 0;   -- terminador
+      Offset := Offset + 1;
+   end Encode_Name;
+
+   TX_ID      : constant Uint16 := 16#ABCD#;
+   Pkt_Len    : Natural;
+   TX_Ptr     : Uint16;
+   RX_Size    : Uint16;
+   RX_Ptr     : Uint16;
+   Read_Len   : Natural;
+   Deadline   : constant Time := Clock + Milliseconds (Timeout_MS);
+   Off        : Natural;
+   Ancount    : Uint16;
+   Qdcount    : Uint16;
+   Rtype      : Uint16;
+   Rdlen      : Uint16;
+   Found      : Boolean := False;
+
+begin
+   IP_Out := (others => 0);
+   Socket1_Open_UDP (16#0400#);   -- puerto local 1024
+
+   if Socket1_Status /= SOCK_UDP then
+      USART_Driver.Send_Line ("DNS: error abriendo socket UDP");
+      return False;
+   end if;
+
+   --  Apuntar al servidor DNS
+   Write_Buf   (Sn_DIPR,  S1_REG_WR, DNS_Server);
+   Write_Reg16 (Sn_DPORT, S1_REG_WR, 53);
+
+   --  Construir paquete DNS en DNS_Buffer
+   DNS_Buffer := (others => 0);
+
+   --  Header DNS (12 bytes)
+   DNS_Buffer (1)  := Uint8 (TX_ID / 256);
+   DNS_Buffer (2)  := Uint8 (TX_ID mod 256);
+   DNS_Buffer (3)  := 16#01#;   -- QR=0 query, OPCODE=0, RD=1
+   DNS_Buffer (4)  := 16#00#;
+   DNS_Buffer (5)  := 16#00#; DNS_Buffer (6)  := 16#01#;  -- QDCOUNT=1
+   DNS_Buffer (7)  := 16#00#; DNS_Buffer (8)  := 16#00#;  -- ANCOUNT=0
+   DNS_Buffer (9)  := 16#00#; DNS_Buffer (10) := 16#00#;  -- NSCOUNT=0
+   DNS_Buffer (11) := 16#00#; DNS_Buffer (12) := 16#00#;  -- ARCOUNT=0
+
+   --  QNAME
+   Off := 13;
+   Encode_Name (DNS_Buffer, Off, Hostname);
+
+   --  QTYPE=A (0x0001), QCLASS=IN (0x0001)
+   DNS_Buffer (Off)     := 16#00#; DNS_Buffer (Off + 1) := 16#01#;
+   DNS_Buffer (Off + 2) := 16#00#; DNS_Buffer (Off + 3) := 16#01#;
+   Pkt_Len := Off + 3;
+
+   --  Enviar por socket 1 UDP
+   TX_Ptr := Read_Reg16 (Sn_TX_WR, S1_REG_RD);
+   Write_Buf   (TX_Ptr and 16#07FF#, S1_TX_WR, DNS_Buffer (1 .. Pkt_Len));
+   Write_Reg16 (Sn_TX_WR, S1_REG_WR, TX_Ptr + Uint16 (Pkt_Len));
+   Write_Reg   (Sn_CR,    S1_REG_WR, CR_SEND);
+
+   USART_Driver.Send_Line ("DNS: query enviada para " & Hostname);
+
+   --  Esperar respuesta
+   loop
+      exit when Clock >= Deadline;
+
+      RX_Size := Read_Reg16 (S1_RX_RSR, S1_REG_RD);
+
+      if RX_Size > 0 then
+         Read_Len := Natural (RX_Size);
+         if Read_Len > DNS_Buffer'Length then
+            Read_Len := DNS_Buffer'Length;
+         end if;
+
+         RX_Ptr := Read_Reg16 (S1_RX_RD_R, S1_REG_RD);
+         Read_Buf (RX_Ptr, S1_RX_RD, DNS_Buffer (1 .. Read_Len));
+         Write_Reg16 (S1_RX_RD_R, S1_REG_WR, RX_Ptr + Uint16 (Read_Len));
+         Write_Reg   (Sn_CR, S1_REG_WR, CR_RECV);
+
+         --  En UDP el W5500 antepone 8 bytes: IP(4) + Port(2) + Size(2)
+         --  El paquete DNS empieza en offset 9
+         Off := 9;
+
+         --  Verificar ID de respuesta
+         if Read_Len < Off + 12 then
+            USART_Driver.Send_Line ("DNS: respuesta demasiado corta");
+            Socket1_Close;
+            return False;
+         end if;
+
+         declare
+            RX_ID : constant Uint16 :=
+               Uint16 (DNS_Buffer (Off)) * 256 +
+               Uint16 (DNS_Buffer (Off + 1));
+         begin
+            if RX_ID /= TX_ID then
+               USART_Driver.Send_Line ("DNS: ID no coincide");
+               Socket1_Close;
+               return False;
+            end if;
+         end;
+
+         --  ANCOUNT (offset 7-8 del DNS = Off+6 .. Off+7)
+         Ancount := Uint16 (DNS_Buffer (Off + 6)) * 256 +
+                    Uint16 (DNS_Buffer (Off + 7));
+         Qdcount := Uint16 (DNS_Buffer (Off + 4)) * 256 +
+                    Uint16 (DNS_Buffer (Off + 5));
+
+         Print_Hex ("DNS ANCOUNT: ", Uint8 (Ancount));
+
+         if Ancount = 0 then
+            USART_Driver.Send_Line ("DNS: sin respuestas (NXDOMAIN?)");
+            Socket1_Close;
+            return False;
+         end if;
+
+         --  Saltar cabecera DNS (12 bytes) + sección Question
+         --  Off apunta al inicio del paquete DNS
+         Off := Off + 12;  -- saltar cabecera
+
+         --  Saltar QDCOUNT preguntas: cada una es QNAME + 4 bytes
+         for Q in 1 .. Natural (Qdcount) loop
+            --  Saltar QNAME (puede tener compresión o etiquetas)
+            loop
+               exit when Off > Read_Len;
+               declare
+                  Label_Len : constant Uint8 := DNS_Buffer (Off);
+               begin
+                  if Label_Len = 0 then
+                     Off := Off + 1;   -- consumir el 0x00 final
+                     exit;
+                  elsif (Label_Len and 16#C0#) = 16#C0# then
+                     Off := Off + 2;   -- puntero de compresión = 2 bytes
+                     exit;
+                  else
+                     Off := Off + 1 + Natural (Label_Len);
+                  end if;
+               end;
+            end loop;
+            Off := Off + 4;   -- QTYPE + QCLASS
+         end loop;
+
+         --  Leer sección Answer
+         for A in 1 .. Natural (Ancount) loop
+            exit when Off > Read_Len;
+
+            --  Saltar NAME (normalmente puntero de compresión 0xC0 XX)
+            if (DNS_Buffer (Off) and 16#C0#) = 16#C0# then
+               Off := Off + 2;
+            else
+               loop
+                  exit when Off > Read_Len;
+                  declare
+                     L : constant Uint8 := DNS_Buffer (Off);
+                  begin
+                     if L = 0 then
+                        Off := Off + 1; exit;
+                     elsif (L and 16#C0#) = 16#C0# then
+                        Off := Off + 2; exit;
+                     else
+                        Off := Off + 1 + Natural (L);
+                     end if;
+                  end;
+               end loop;
+            end if;
+
+            exit when Off + 10 > Read_Len;
+
+            Rtype := Uint16 (DNS_Buffer (Off))     * 256 +
+                     Uint16 (DNS_Buffer (Off + 1));
+            --  CLASS en Off+2, Off+3  (ignorar)
+            --  TTL   en Off+4 .. Off+7 (ignorar)
+            Rdlen := Uint16 (DNS_Buffer (Off + 8)) * 256 +
+                     Uint16 (DNS_Buffer (Off + 9));
+            Off := Off + 10;
+
+            if Rtype = 1 and then Rdlen = 4 then
+               --  Tipo A, IPv4
+               IP_Out (1) := DNS_Buffer (Off);
+               IP_Out (2) := DNS_Buffer (Off + 1);
+               IP_Out (3) := DNS_Buffer (Off + 2);
+               IP_Out (4) := DNS_Buffer (Off + 3);
+               Found := True;
+               exit;
+            end if;
+
+            Off := Off + Natural (Rdlen);   -- saltar RDATA si no es tipo A
+         end loop;
+
+         Socket1_Close;
+
+         if Found then
+            USART_Driver.Send_Line ("DNS OK: " &
+               Integer'Image (Natural (IP_Out (1))) & "." &
+               Integer'Image (Natural (IP_Out (2))) & "." &
+               Integer'Image (Natural (IP_Out (3))) & "." &
+               Integer'Image (Natural (IP_Out (4))));
+            return True;
+         else
+            USART_Driver.Send_Line ("DNS: no se encontro registro A");
+            return False;
+         end if;
+      end if;
+
+      delay until Clock + Milliseconds (10);
+   end loop;
+
+   USART_Driver.Send_Line ("DNS: timeout esperando respuesta");
+   Socket1_Close;
+   return False;
+end Resolve_DNS;
+
+
 end W5500;
