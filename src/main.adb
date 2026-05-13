@@ -14,6 +14,7 @@ procedure Main is
    Google  : Uint8_Array (1 .. 4) := (8, 8, 8, 8);
    DNS_IP  : Uint8_Array (1 .. 4);
    DNS_Server : constant Uint8_Array (1 .. 4) := (192, 168, 1, 1);
+   DHCP :  DHCP_Result ;
 
    Server_IP   : Uint8_Array (1 .. 4) := (192, 168, 1, 1);
    Server_Port : constant Uint16 := 80;
@@ -114,10 +115,20 @@ begin
  
    Check_Link;
 
+  
+ W5500.Set_MAC     (My_MAC);
+ DHCP:=W5500.DHCP_Request;
+   if DHCP.Success then
+      w5500.Set_IP      (DHCP.IP);
+        w5500.Set_Subnet  (DHCP.Subnet);
+        w5500.Set_Gateway (DHCP.Gateway);
+   else
+     
    W5500.Set_Gateway (My_GW);
    W5500.Set_Subnet  (My_SN);
-   W5500.Set_MAC     (My_MAC);
    W5500.Set_IP      (My_IP);
+
+   end if;
    USART_Driver.Send_Line ("Red configurada");
    Verify_Configuration;
 

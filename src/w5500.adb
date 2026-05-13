@@ -1102,4 +1102,351 @@ begin
    Result_Len := Off - Result'First + 1;
 end Encode_DNS_Name;
 
+
+
+--DHCP
+
+
+
+procedure Socket3_Open_DHCP is
+   Broadcast : constant Uint8_Array (1 .. 4) := (255, 255, 255, 255);
+   Bcast_MAC : constant Uint8_Array (1 .. 6) :=
+      (16#FF#, 16#FF#, 16#FF#, 16#FF#, 16#FF#, 16#FF#);
+   Status    : Uint8;
+begin
+   Write_Reg (Sn_CR, S3_REG_WR, CR_CLOSE);
+   delay until Clock + Milliseconds (10);
+
+   --  W5500: UDP normal, sin bit broadcast (no existe en W5500)
+   Write_Reg   (Sn_MR,   S3_REG_WR, MR_UDP);   -- 0x02
+   Write_Reg16 (Sn_PORT, S3_REG_WR, 68);
+   Write_Reg   (Sn_CR,   S3_REG_WR, CR_OPEN);
+   delay until Clock + Milliseconds (20);
+
+   Status := Read_Reg (Sn_SR, S3_REG_RD);
+   Print_Hex ("DHCP socket status: ", Status);
+   --  Debe ser 0x22 (SOCK_UDP)
+
+   Write_Buf   (Sn_DHAR,  S3_REG_WR, Bcast_MAC);
+   Write_Buf   (Sn_DIPR,  S3_REG_WR, Broadcast);
+   Write_Reg16 (Sn_DPORT, S3_REG_WR, 67);
+end Socket3_Open_DHCP;
+
+procedure Socket3_Close is
+begin
+   Write_Reg (Sn_CR, S3_REG_WR, CR_CLOSE);
+end Socket3_Close;
+
+
+procedure DHCP_Send (Data : Uint8_Array; Len : Natural) is
+   TX_Ptr  : Uint16;
+   TX_Free : Uint16;
+   Timeout : Natural := 0;
+   IR      : Uint8;
+begin
+   TX_Free := Read_Reg16 (Sn_TX_FSR, S3_REG_RD);
+   Print_Hex ("DHCP TX_FSR_H: ", Uint8 (TX_Free / 256));
+   Print_Hex ("DHCP TX_FSR_L: ", Uint8 (TX_Free mod 256));
+   --  Debe ser 0x0800 (2048 bytes libres)
+
+   TX_Ptr := Read_Reg16 (Sn_TX_WR, S3_REG_RD);
+   Write_Buf   (TX_Ptr and 16#07FF#, S3_TX_WR, Data (1 .. Len));
+   Write_Reg16 (Sn_TX_WR, S3_REG_WR, TX_Ptr + Uint16 (Len));
+   Write_Reg   (Sn_CR,    S3_REG_WR, CR_SEND);
+
+   loop
+      IR := Read_Reg (16#0002#, S3_REG_RD);
+      exit when (IR and 16#10#) /= 0;
+      exit when (IR and 16#08#) /= 0;
+      exit when Timeout > 3000;
+      Timeout := Timeout + 1;
+      delay until Clock + Milliseconds (1);
+   end loop;
+
+   Print_Hex ("DHCP Sn_IR: ", IR);
+   if (IR and 16#10#) /= 0 then
+      USART_Driver.Send_Line ("DHCP: SEND_OK");
+   elsif (IR and 16#08#) /= 0 then
+      USART_Driver.Send_Line ("DHCP: SEND_TIMEOUT");
+   else
+      USART_Driver.Send_Line ("DHCP: SEND sin respuesta");
+   end if;
+
+   Write_Reg (16#0002#, S3_REG_WR, 16#FF#);
+end DHCP_Send;
+function DHCP_Recv (Timeout_MS : Natural) return Natural is
+   Deadline : constant Time := Clock + Milliseconds (Timeout_MS);
+   RX_Size  : Uint16;
+   RX_Ptr   : Uint16;
+   Read_Len : Natural;
+begin
+   loop
+      exit when Clock >= Deadline;
+      RX_Size := Read_Reg16 (Sn_RX_RSR, S3_REG_RD);
+      if RX_Size > 0 then
+         Read_Len := Natural'Min (Natural (RX_Size), DHCP_Buffer'Length);
+         RX_Ptr   := Read_Reg16 (Sn_RX_RD, S3_REG_RD);
+         Read_Buf (RX_Ptr, S3_RX_RD, DHCP_Buffer (1 .. Read_Len));
+         Write_Reg16 (Sn_RX_RD, S3_REG_WR, RX_Ptr + Uint16 (Read_Len));
+         Write_Reg   (Sn_CR,    S3_REG_WR, CR_RECV);
+         return Read_Len;
+      end if;
+      delay until Clock + Milliseconds (5);
+   end loop;
+   return 0;
+end DHCP_Recv;
+
+
+--  DHCP
+
+
+function DHCP_Request (Timeout_MS : Natural := 10_000) return DHCP_Result is
+
+   Zero_IP : constant Uint8_Array (1 .. 4) := (0, 0, 0, 0);
+   Empty   : constant DHCP_Result :=
+      (Success => False,
+       IP      => Zero_IP,
+       Subnet  => Zero_IP,
+       Gateway => Zero_IP,
+       DNS     => Zero_IP,
+       Lease   => 0);
+
+   My_MAC  : Uint8_Array (1 .. 6);
+   XID     : constant Uint32 := 16#DEADBEEF#;  -- Transaction ID fijo
+
+procedure Build_DHCP (Msg_Type : Uint8; Server_IP : Uint8_Array;
+                       Req_IP   : Uint8_Array; Len : out Natural) is
+   Off : Natural := 1;
+
+   procedure Put8  (V : Uint8)  is
+   begin
+      DHCP_Buffer (Off) := V; Off := Off + 1;
+   end Put8;
+   procedure Put16 (V : Uint16) is
+   begin
+      Put8 (Uint8 (V / 256)); Put8 (Uint8 (V mod 256));
+   end Put16;
+   procedure Put32 (V : Uint32) is
+   begin
+      Put8 (Uint8 ((V / 16#1000000#) mod 256));
+      Put8 (Uint8 ((V /    16#10000#) mod 256));
+      Put8 (Uint8 ((V /      16#100#) mod 256));
+      Put8 (Uint8 ( V                 mod 256));
+   end Put32;
+
+begin
+   DHCP_Buffer := (others => 0);
+
+   Put8  (1);           -- op      = BOOTREQUEST
+   Put8  (1);           -- htype   =Ethernet
+   Put8  (6);           -- hlen    =  6
+   Put8  (0);           -- hops    = 0
+   Put32 (XID);         -- xid     Off=9 tras esto
+   Put16 (0);           -- secs
+   Put16 (16#8000#);    -- flags   = BROADCAST  Off=13
+   Off := Off + 16;     -- ciaddr+yiaddr+siaddr+giaddr = 16 bytes a 0
+   for I in My_MAC'Range loop
+      Put8 (My_MAC (I));
+   end loop;            -- chaddr MAC (Off=35)
+   Off := Off + 10;     -- padding MAC a 0
+   Off := Off + 64;     -- sname a 0
+   Off := Off + 128;    -- file a 0
+                        -- Off = 237 aquí
+
+   
+   Put8 (99);
+   Put8 (130);
+   Put8 (83);
+   Put8 (99);           -- Off = 241
+
+   --  53: DHCP Message Type
+   Put8 (53); Put8 (1); Put8 (Msg_Type);
+
+   --   61: Client Identifier
+   Put8 (61); Put8 (7); Put8 (1);
+   for I in My_MAC'Range loop Put8 (My_MAC (I)); end loop;
+
+   --  55: Parameter Request List
+   Put8 (55); Put8 (4);
+   Put8 (1);   -- Subnet Mask
+   Put8 (3);   -- Router
+   Put8 (6);   -- DNS
+   Put8 (51);  -- Lease Time
+
+   if Msg_Type = 3 then
+      Put8 (54); Put8 (4);
+      for I in Server_IP'Range loop Put8 (Server_IP (I)); end loop;
+      Put8 (50); Put8 (4);
+      for I in Req_IP'Range loop Put8 (Req_IP (I)); end loop;
+   end if;
+
+   Put8 (255);   -- END
+   Len := Off - 1;  
+end Build_DHCP;
+
+  
+   --  Devuelve el Message Type encontrado (2=OFFER, 5=ACK, 6=NAK, 0=error)
+   procedure Parse_DHCP (Recv_Len  :     Natural;
+                          Msg_Type  : out Uint8;
+                          Offered   : out Uint8_Array;
+                          Server_IP : out Uint8_Array;
+                          Subnet    : out Uint8_Array;
+                          Gateway   : out Uint8_Array;
+                          DNS       : out Uint8_Array;
+                          Lease     : out Uint32) is
+      --  En UDP W5500 RX hay 8 bytes de cabecera antes del paquete
+      Base : constant Natural := 9;
+      Off  : Natural;
+      Opt  : Uint8;
+      Olen : Uint8;
+      XID_OK : Boolean;
+   begin
+      Msg_Type  := 0;
+      Offered   := (others => 0);
+      Server_IP := (others => 0);
+      Subnet    := (others => 0);
+      Gateway   := (others => 0);
+      DNS       := (others => 0);
+      Lease     := 0;
+
+      if Recv_Len < Base + 240 then return; end if;
+
+      --  Verificar XID (offset 4..7 del BOOTP = Base+4)
+      XID_OK :=
+         DHCP_Buffer (Base + 4)  = Uint8 ((XID / 16#1000000#) mod 256) and then
+         DHCP_Buffer (Base + 5)  = Uint8 ((XID /    16#10000#) mod 256) and then
+         DHCP_Buffer (Base + 6)  = Uint8 ((XID /      16#100#) mod 256) and then
+         DHCP_Buffer (Base + 7)  = Uint8 ( XID                 mod 256);
+
+      if not XID_OK then return; end if;
+
+      --  yiaddr: IP ofrecida (offset 16..19 del BOOTP = Base+16)
+      for I in 1 .. 4 loop
+         Offered (I) := DHCP_Buffer (Base + 15 + I);
+      end loop;
+
+      --  Saltar cabecera BOOTP (236 bytes) + magic cookie (4) = 240
+      Off := Base + 240;
+
+      --  Parsear opciones
+      loop
+         exit when Off > Recv_Len;
+         Opt := DHCP_Buffer (Off); Off := Off + 1;
+
+         exit when Opt = 255;       -- END
+         if Opt = 0 then            -- PAD
+            null;
+         else
+            exit when Off > Recv_Len;
+            Olen := DHCP_Buffer (Off); Off := Off + 1;
+
+            case Opt is
+               when 53 =>           -- Message Type
+                  Msg_Type := DHCP_Buffer (Off);
+               when 54 =>           -- Server Identifier
+                  for I in 1 .. 4 loop
+                     Server_IP (I) := DHCP_Buffer (Off + I - 1);
+                  end loop;
+               when 1 =>            -- Subnet Mask
+                  for I in 1 .. 4 loop
+                     Subnet (I) := DHCP_Buffer (Off + I - 1);
+                  end loop;
+               when 3 =>            -- Router
+                  for I in 1 .. 4 loop
+                     Gateway (I) := DHCP_Buffer (Off + I - 1);
+                  end loop;
+               when 6 =>            -- DNS
+                  for I in 1 .. 4 loop
+                     DNS (I) := DHCP_Buffer (Off + I - 1);
+                  end loop;
+               when 51 =>           -- Lease Time
+                  Lease :=
+                     Uint32 (DHCP_Buffer (Off))     * 16#1000000# +
+                     Uint32 (DHCP_Buffer (Off + 1)) *    16#10000# +
+                     Uint32 (DHCP_Buffer (Off + 2)) *      16#100# +
+                     Uint32 (DHCP_Buffer (Off + 3));
+               when others => null;
+            end case;
+
+            Off := Off + Natural (Olen);
+         end if;
+      end loop;
+   end Parse_DHCP;
+
+   --  Variables del proceso DHCP
+   Pkt_Len   : Natural;
+   Recv_Len  : Natural;
+   Msg_Type  : Uint8;
+   Offered   : Uint8_Array (1 .. 4) := (others => 0);
+   Server_IP : Uint8_Array (1 .. 4) := (others => 0);
+   Subnet    : Uint8_Array (1 .. 4) := (others => 0);
+   Gateway   : Uint8_Array (1 .. 4) := (others => 0);
+   DNS       : Uint8_Array (1 .. 4) := (others => 0);
+   Lease     : Uint32 := 0;
+   Zero_IP4  : constant Uint8_Array (1 .. 4) := (others => 0);
+
+begin
+   Get_MAC (My_MAC);
+   Socket3_Open_DHCP;
+
+   USART_Driver.Send_Line ("DHCP: enviando DISCOVER...");
+
+   
+   Build_DHCP (1, Zero_IP4, Zero_IP4, Pkt_Len);
+   DHCP_Send (DHCP_Buffer, Pkt_Len);
+
+   --  Esperar OFFER
+   Recv_Len := DHCP_Recv (Timeout_MS / 2);
+   if Recv_Len = 0 then
+      USART_Driver.Send_Line ("DHCP: timeout esperando OFFER");
+      Socket3_Close;
+      return Empty;
+   end if;
+
+   Parse_DHCP (Recv_Len, Msg_Type, Offered, Server_IP,
+               Subnet, Gateway, DNS, Lease);
+
+   if Msg_Type /= 2 then
+      USART_Driver.Send_Line ("DHCP: no se recibio OFFER");
+      Socket3_Close;
+      return Empty;
+   end if;
+
+   USART_Driver.Send_Line ("DHCP: OFFER recibida, enviando REQUEST...");
+
+   --request
+   Build_DHCP (3, Server_IP, Offered, Pkt_Len);
+   DHCP_Send (DHCP_Buffer, Pkt_Len);
+
+   --  Esperar ACK
+   Recv_Len := DHCP_Recv (Timeout_MS / 2);
+   if Recv_Len = 0 then
+      USART_Driver.Send_Line ("DHCP: timeout esperando ACK");
+      Socket3_Close;
+      return Empty;
+   end if;
+
+   Parse_DHCP (Recv_Len, Msg_Type, Offered, Server_IP,
+               Subnet, Gateway, DNS, Lease);
+
+   Socket3_Close;
+
+   if Msg_Type = 5 then
+      USART_Driver.Send_Line ("DHCP: ACK recibido configuracion obtenida");
+      return (Success => True,
+              IP      => Offered,
+              Subnet  => Subnet,
+              Gateway => Gateway,
+              DNS     => DNS,
+              Lease   => Lease);
+   elsif Msg_Type = 6 then
+      USART_Driver.Send_Line ("DHCP: NAK recibido rechazado por servidor");
+      return Empty;
+   else
+      USART_Driver.Send_Line ("DHCP: respuesta inesperada");
+      return Empty;
+   end if;
+
+end DHCP_Request;
+
 end W5500;

@@ -1,8 +1,4 @@
--- ============================================================
---  W5500 Mini-Driver
---  SPI Mode 0 (CPOL=0, CPHA=0), MSB first
---  Frame: [Addr_H][Addr_L][(BSB<<3)|(RWB<<2)|OM][Data...]
--- ============================================================
+
 with SPI_Driver;
 with STM32F446; use STM32F446;
 
@@ -53,7 +49,19 @@ procedure mDNS_Announce (Hostname:string);
 procedure mDNS_Loop(Hostname :string);
 --  Llamar periódicamente desde main: escucha queries y responde
 
-                     
+  type DHCP_Result is record
+   Success : Boolean;
+   IP      : Uint8_Array (1 .. 4);
+   Subnet  : Uint8_Array (1 .. 4);
+   Gateway : Uint8_Array (1 .. 4);
+   DNS     : Uint8_Array (1 .. 4);
+   Lease   : Uint32;
+end record;
+
+function DHCP_Request (Timeout_MS : Natural := 10_000) return DHCP_Result;
+--  Hace DISCOVER+REQUEST y devuelve la configuración obtenida.
+--  Si Success=False los demás campos son cero.
+                 
 private
 
    procedure Write_Reg  (Addr : Uint16; Block : Uint8; Data : Uint8);
@@ -164,4 +172,22 @@ function  mDNS_Parse_Query    return Boolean;
 --  Devuelve True si la query es para "stm32.local"
 procedure Encode_DNS_Name (Hostname : String ; Result      : out Uint8_Array;Result_Len  : out Natural) ;
 --  Uint8_Array debe ser "array (Natural range <>) of Uint8"
+
+
+--  Socket 3 para DHCP
+S3_REG_RD : constant Uint8 := 16#68#;
+S3_REG_WR : constant Uint8 := 16#6C#;
+S3_TX_WR  : constant Uint8 := 16#74#;
+S3_RX_RD  : constant Uint8 := 16#78#;
+
+DHCP_Buffer : Uint8_Array (1 .. 548);  -- tamaño mínimo DHCP RFC 2131
+
+procedure Socket3_Open_DHCP;
+procedure Socket3_Close;
+procedure DHCP_Send (Data : Uint8_Array; Len : Natural);
+function  DHCP_Recv (Timeout_MS : Natural) return Natural;
+--  Devuelve bytes leídos en DHCP_Buffer, 0 si timeout
+
+
+
 end W5500;
