@@ -182,6 +182,13 @@ begin
       end if;
    end if;
 
+
+  
+  
+loop
+   HTTP_Server (80);
+end loop;
+
  loop
      Next_Time := Clock + Milliseconds (1000);
       delay until Next_Time;

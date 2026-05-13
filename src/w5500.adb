@@ -7,9 +7,6 @@ with USART_Driver; use USART_Driver;
 
 package body W5500 is
 
-   -- =========================================================
-   --  Primitivas SPI
-   -- =========================================================
 
    procedure Write_Reg (Addr : Uint16; Block : Uint8; Data : Uint8) is
    begin
@@ -73,9 +70,7 @@ package body W5500 is
       Write_Reg (Addr + 1, Block, Uint8 (Data mod 256));
    end Write_Reg16;
 
-   -- =========================================================
-   --  Verificacion
-   -- =========================================================
+
 
    function Read_Version return Uint8 is
    begin
@@ -377,9 +372,8 @@ end Receive_Ping_Reply;
    end Ping;
 
 
-   -- =========================================================
+
 --  Socket 1 UDP (para DNS)
--- =========================================================
 
 procedure Socket1_Open_UDP (Local_Port : Uint16) is
    T : constant Time := Clock + Milliseconds (10);
@@ -402,9 +396,9 @@ begin
    return Read_Reg (Sn_SR, S1_REG_RD);
 end Socket1_Status;
 
--- =========================================================
+
 --  DNS
--- =========================================================
+
 
 function Resolve_DNS (Hostname   : String;
                       DNS_Server : Uint8_Array;
@@ -532,7 +526,7 @@ begin
             end if;
          end;
 
-         --  ANCOUNT (offset 7-8 del DNS = Off+6 .. Off+7)
+         --  ANCOUNT (offset 7-8 del DNS)
          Ancount := Uint16 (DNS_Buffer (Off + 6)) * 256 +
                     Uint16 (DNS_Buffer (Off + 7));
          Qdcount := Uint16 (DNS_Buffer (Off + 4)) * 256 +
@@ -643,4 +637,153 @@ begin
 end Resolve_DNS;
 
 
+procedure Socket0_Listen (Local_Port : Uint16) is
+begin
+   Write_Reg   (Sn_CR,   S0_REG_WR, CR_CLOSE);
+   delay until Clock + Milliseconds (5);
+   Write_Reg   (Sn_MR,   S0_REG_WR, MR_TCP);
+   Write_Reg16 (Sn_PORT, S0_REG_WR, Local_Port);
+   Write_Reg   (Sn_CR,   S0_REG_WR, CR_OPEN);
+   delay until Clock + Milliseconds (5);
+   Write_Reg   (Sn_CR,   S0_REG_WR, CR_LISTEN);
+   --  CR_LISTEN = 0x02
+end Socket0_Listen;
+
+procedure Socket0_Send (Data : Uint8_Array) is
+   TX_Ptr  : Uint16;
+   TX_Free : Uint16;
+   Sent    : Natural := 0;
+   Chunk   : Natural;
+   Timeout : Natural;
+   IR      : Uint8;
+begin
+   while Sent < Data'Length loop
+      --  Esperar espacio libre en TX
+      loop
+         TX_Free := Read_Reg16 (Sn_TX_FSR, S0_REG_RD);
+         exit when TX_Free > 0;
+         delay until Clock + Milliseconds (1);
+      end loop;
+
+      Chunk := Natural'Min (Data'Length - Sent, Natural (TX_Free));
+
+      TX_Ptr := Read_Reg16 (Sn_TX_WR, S0_REG_RD);
+      Write_Buf   (TX_Ptr and 16#07FF#, S0_TX_WR,
+                   Data (Data'First + Sent .. Data'First + Sent + Chunk - 1));
+      Write_Reg16 (Sn_TX_WR, S0_REG_WR, TX_Ptr + Uint16 (Chunk));
+      Write_Reg   (Sn_CR,    S0_REG_WR, CR_SEND);
+
+      --  Esperar SEND_OK
+      Timeout := 0;
+      loop
+         IR := Read_Reg (16#0002#, S0_REG_RD);  -- Sn_IR
+         exit when (IR and 16#10#) /= 0;         -- SEND_OK
+         exit when (IR and 16#08#) /= 0;         -- TIMEOUT
+         exit when Timeout > 2000;
+         Timeout := Timeout + 1;
+         delay until Clock + Milliseconds (1);
+      end loop;
+      Write_Reg (16#0002#, S0_REG_WR, 16#FF#);  -- limpiar Sn_IR
+
+      Sent := Sent + Chunk;
+   end loop;
+end Socket0_Send;
+
+function Socket0_Recv (Max_Len : Natural) return Natural is
+   RX_Size : Uint16;
+   RX_Ptr  : Uint16;
+   Read_Len : Natural;
+begin
+   RX_Size := Read_Reg16 (Sn_RX_RSR, S0_REG_RD);
+   if RX_Size = 0 then
+      return 0;
+   end if;
+
+   Read_Len := Natural'Min (Natural (RX_Size), Max_Len);
+   RX_Ptr   := Read_Reg16 (Sn_RX_RD, S0_REG_RD);
+   Read_Buf (RX_Ptr, S0_RX_RD, HTTP_Buffer (1 .. Read_Len));
+   Write_Reg16 (Sn_RX_RD, S0_REG_WR, RX_Ptr + Uint16 (Read_Len));
+   Write_Reg   (Sn_CR,    S0_REG_WR, CR_RECV);
+   return Read_Len;
+end Socket0_Recv;
+
+--server http
+
+procedure HTTP_Server (Port : Uint16 := 80) is
+
+   HTML : constant String :=
+      "HTTP/1.1 200 OK" & ASCII.CR & ASCII.LF &
+      "Content-Type: text/html; charset=utf-8" & ASCII.CR & ASCII.LF &
+      "Connection: close" & ASCII.CR & ASCII.LF &
+      "Content-Length: 31" & ASCII.CR & ASCII.LF &
+      ASCII.CR & ASCII.LF &
+      "<h1>Pagina de prueba</h1>";
+   --  Content-Length = 25 chars de <h1>Pagina de prueba</h1>
+   --  Ajusta si cambias el body
+
+   HTML_Buf : Uint8_Array (1 .. HTML'Length);
+   Status   : Uint8;
+   Timeout  : Natural;
+   Got_Data : Boolean;
+
+begin
+   --  Convertir String a Uint8_Array
+   for I in HTML'Range loop
+      HTML_Buf (I - HTML'First + 1) := Character'Pos (HTML (I));
+   end loop;
+
+   USART_Driver.Send_Line ("HTTP: escuchando en puerto " &
+      Integer'Image (Natural (Port)));
+
+   Socket0_Listen (Port);
+
+   --  Esperar conexión entrante (SOCK_ESTABLISHED = 0x17)
+   Timeout := 0;
+   loop
+      Status := Socket0_Status;
+      exit when Status = SOCK_ESTABLISHED;
+      exit when Timeout > 30_000;   -- 30 segundos máximo
+      Timeout := Timeout + 1;
+      delay until Clock + Milliseconds (1);
+   end loop;
+
+   if Socket0_Status /= SOCK_ESTABLISHED then
+      USART_Driver.Send_Line ("HTTP: timeout esperando conexion");
+      Socket0_Close;
+      return;
+   end if;
+
+   USART_Driver.Send_Line ("HTTP: cliente conectado");
+
+   --  Esperar a recibir la petición GET (o cualquier dato)
+   Got_Data := False;
+   Timeout  := 0;
+   loop
+      if Socket0_Recv (HTTP_Buffer'Length) > 0 then
+         Got_Data := True;
+         exit;
+      end if;
+      --  El cliente puede cerrar tras enviar (CLOSE_WAIT)
+      Status := Socket0_Status;
+      exit when Status = SOCK_CLOSE_WAIT;
+      exit when Timeout > 5000;
+      Timeout := Timeout + 1;
+      delay until Clock + Milliseconds (1);
+   end loop;
+
+   if Got_Data then
+      --  Imprimir el método recibido (primeros bytes = "GET / HTTP/1.1")
+      USART_Driver.Send_Line ("HTTP: peticion recibida");
+   end if;
+
+   --  Enviar respuesta
+   Socket0_Send (HTML_Buf);
+   USART_Driver.Send_Line ("HTTP: respuesta enviada");
+
+   --  Cerrar conexión limpiamente
+   delay until Clock + Milliseconds (10);
+   Socket0_Close;
+   USART_Driver.Send_Line ("HTTP: conexion cerrada");
+
+end HTTP_Server;
 end W5500;

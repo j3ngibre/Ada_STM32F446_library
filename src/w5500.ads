@@ -40,6 +40,12 @@ package W5500 is
                       DNS_Server : Uint8_Array;
                       IP_Out     : out Uint8_Array;
                       Timeout_MS : Natural := 3000) return Boolean;
+
+
+   procedure HTTP_Server (Port : Uint16 := 80);
+--  Bloquea esperando una conexión HTTP, responde y cierra.
+
+
                      
 private
 
@@ -89,6 +95,7 @@ private
 
    -- Comandos Sn_CR
    CR_OPEN    : constant Uint8 := 16#01#;
+   CR_LISTEN : constant Uint8 := 16#02#;
    CR_CONNECT : constant Uint8 := 16#04#;
    CR_DISCON  : constant Uint8 := 16#08#;
    CR_CLOSE   : constant Uint8 := 16#10#;
@@ -124,4 +131,14 @@ S1_TX_FSR : constant Uint16 := 16#0020#;
 S1_TX_WR_R: constant Uint16 := 16#0024#;
 S1_RX_RSR : constant Uint16 := 16#0026#;
 S1_RX_RD_R: constant Uint16 := 16#0028#;
+
+
+--para http
+HTTP_Buffer : Uint8_Array (1 .. 512);
+
+procedure Socket0_Listen (Local_Port : Uint16);
+procedure Socket0_Send   (Data : Uint8_Array);
+function  Socket0_Recv   (Max_Len : Natural) return Natural;
+
+--  Devuelve cuántos bytes leyó en HTTP_Buffer
 end W5500;
