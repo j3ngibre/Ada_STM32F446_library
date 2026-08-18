@@ -88,20 +88,19 @@ package USART is
   
 
    procedure Initialize (Baudrate : Uint32);
-   
-   -- Enviar  char
+  
    procedure Send_Char (C : Uint8);
    
-   -- Enviar string 
+
    procedure Send_String (S : String);
    
-   -- Enviar string con salto de linea
+
    procedure Send_Line (S : String);
    
-   -- Leer caracter (bloquea)
+  
    function Read_Char return Uint8;
    
-   -- Checkea datos
+
    function Data_Available return Boolean;
 --end PU;
   private

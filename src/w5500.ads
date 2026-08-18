@@ -41,6 +41,8 @@ package W5500 is
    procedure HTTP_Server (Port : Uint16 := 80);
 --  Bloquea esperando una conexión HTTP, responde y cierra.
    procedure HTTP_Server_mDNS (Port : Uint16 := 80 ; Hostname:String);
+      procedure HTTP_Server_mDNSe (Port : Uint16 := 80 ; Hostname:String;Content:String);
+         procedure HTTP_Server_mDNSee (Port : Uint16 := 80 ; Hostname:String;Content:String);
    --IUGAL  Q EL ANTERIOR PERO ANUNCIA MDNS 
 
 procedure mDNS_Announce (Hostname:string);
@@ -73,15 +75,32 @@ private
 
 
 
-   -- Control bytes: (BSB<<3) | (RWB<<2) | OM=0
+
    COMMON_RD : constant Uint8 := 16#00#;
    COMMON_WR : constant Uint8 := 16#04#;
    S0_REG_RD : constant Uint8 := 16#08#;
    S0_REG_WR : constant Uint8 := 16#0C#;
    S0_TX_WR  : constant Uint8 := 16#14#;
    S0_RX_RD  : constant Uint8 := 16#18#;
+   S1_REG_RD : constant Uint8 := 16#28#;
+   S1_REG_WR : constant Uint8 := 16#2C#;
+   S1_TX_WR  : constant Uint8 := 16#34#;
+   S1_RX_RD  : constant Uint8 := 16#38#;
+   S1_TX_FSR : constant Uint16 := 16#0020#;
+   S1_TX_WR_R: constant Uint16 := 16#0024#;
+   S1_RX_RSR : constant Uint16 := 16#0026#;
+   S1_RX_RD_R: constant Uint16 := 16#0028#;
+   S2_REG_RD  : constant Uint8  := 16#48#;
+   S2_REG_WR  : constant Uint8  := 16#4C#;
+   S2_TX_WR   : constant Uint8  := 16#54#;
+   S2_RX_RD   : constant Uint8  := 16#58#;
+   S3_REG_RD : constant Uint8 := 16#68#;
+   S3_REG_WR : constant Uint8 := 16#6C#;
+   S3_TX_WR  : constant Uint8 := 16#74#;
+   S3_RX_RD  : constant Uint8 := 16#78#;
+   MDNS_Buffer : Uint8_Array (1 .. 256);
 
-   -- Common Registers
+   -- Registros comunes
    REG_MR       : constant Uint16 := 16#0000#;
    REG_GAR      : constant Uint16 := 16#0001#;
    REG_SUBR     : constant Uint16 := 16#0005#;
@@ -90,7 +109,7 @@ private
    REG_PHYCFGR  : constant Uint16 := 16#002E#;
    REG_VERSIONR : constant Uint16 := 16#0039#;
 
-   -- Socket 0 Registers
+   -- Registro de socket
    Sn_MR    : constant Uint16 := 16#0000#;
    Sn_CR    : constant Uint16 := 16#0001#;
    Sn_SR    : constant Uint16 := 16#0003#;
@@ -138,16 +157,6 @@ procedure Socket1_Close;
 function  Socket1_Status    return Uint8;
 
 
-S1_REG_RD : constant Uint8 := 16#28#;
-S1_REG_WR : constant Uint8 := 16#2C#;
-S1_TX_WR  : constant Uint8 := 16#34#;
-S1_RX_RD  : constant Uint8 := 16#38#;
-S1_TX_FSR : constant Uint16 := 16#0020#;
-S1_TX_WR_R: constant Uint16 := 16#0024#;
-S1_RX_RSR : constant Uint16 := 16#0026#;
-S1_RX_RD_R: constant Uint16 := 16#0028#;
-
-
 --para http
 HTTP_Buffer : Uint8_Array (1 .. 512);
 
@@ -158,12 +167,7 @@ function  Socket0_Recv   (Max_Len : Natural) return Natural;
 --  Devuelve cuántos bytes leyó en HTTP_Buffer
 
 --  Socket 2 para mDNS (multicast UDP puerto 5353)
-S2_REG_RD  : constant Uint8  := 16#48#;
-S2_REG_WR  : constant Uint8  := 16#4C#;
-S2_TX_WR   : constant Uint8  := 16#54#;
-S2_RX_RD   : constant Uint8  := 16#58#;
 
-MDNS_Buffer : Uint8_Array (1 .. 256);
 
 procedure Socket2_Open_mDNS;
 procedure Socket2_Close;
@@ -175,10 +179,7 @@ procedure Encode_DNS_Name (Hostname : String ; Result      : out Uint8_Array;Res
 
 
 --  Socket 3 para DHCP
-S3_REG_RD : constant Uint8 := 16#68#;
-S3_REG_WR : constant Uint8 := 16#6C#;
-S3_TX_WR  : constant Uint8 := 16#74#;
-S3_RX_RD  : constant Uint8 := 16#78#;
+
 
 DHCP_Buffer : Uint8_Array (1 .. 548);  -- tamaño mínimo DHCP RFC 2131
 

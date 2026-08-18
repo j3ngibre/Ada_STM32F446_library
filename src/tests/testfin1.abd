@@ -3,32 +3,18 @@ with STM32F446;     use STM32F446;
 with Ada.Real_Time; use Ada.Real_Time;
 with SPI_Driver;     use SPI_Driver;
 with W5500;         use W5500;
-with GPIO;      use GPIO;
-with ADC;       use ADC;
-with USART;            
 with System;
-with tasks;
-with TaskPant;
-procedure Main is
-   PA0 : constant GPIO_Point := (Port => PORT_A, Pin => 0);
-   PA1 : constant GPIO_Point := (Port => PORT_A, Pin => 1);
 
-   --  Resultados
-   Raw_CH0  : Uint32;
-   Raw_CH1  : Uint32;
-   mV_CH0   : Natural;
-   mV_CH1   : Natural;
-   Temp_Raw : Integer;
-   Temp_Int : Integer;
-   Temp_Dec : Integer;
-   Vref_mV  : Natural;
+procedure Main is
+
    My_MAC : Uint8_Array (1 .. 6) := (16#DE#, 16#AD#, 16#BE#, 16#EF#, 16#FE#, 16#ED#);
    My_IP  : Uint8_Array (1 .. 4) := (192, 168, 1, 180);
    My_SN  : Uint8_Array (1 .. 4) := (255, 255, 255, 0);
    My_GW  : Uint8_Array (1 .. 4) := (192, 168, 1, 1);
-   Google  : Uint8_Array (1 .. 4) := (1, 1, 1, 1);
+   Google  : Uint8_Array (1 .. 4) := (8, 8, 8, 8);
    DNS_IP  : Uint8_Array (1 .. 4);
    DNS_Server : constant Uint8_Array (1 .. 4) := (192, 168, 1, 1);
+   DHCP :  DHCP_Result ;
 
    Server_IP   : Uint8_Array (1 .. 4) := (192, 168, 1, 1);
    Server_Port : constant Uint16 := 80;
@@ -47,34 +33,6 @@ procedure Main is
    GPIOC_PUPDR   : Uint32 with Volatile, Address => System'To_Address (GPIOC + 16#0C#);
    GPIOC_ODR     : Uint32 with Volatile, Address => System'To_Address (GPIOC + 16#14#);
    RCC_AHB1ENR   : Uint32 with Volatile, Address => System'To_Address (RCC   + 16#30#);
-
-   function To_String (V : Integer) return String is
-      S      : String (1 .. 12) := (others => ' ');
-      Idx    : Integer := 12;
-      Val    : Integer := V;
-      Neg    : Boolean := Val < 0;
-   begin
-      if Val = 0 then
-         return "0";
-      end if;
-      if Neg then Val := -Val; end if;
-      while Val > 0 loop
-         S (Idx) := Character'Val (Character'Pos ('0') + Val mod 10);
-         Idx := Idx - 1;
-         Val := Val / 10;
-      end loop;
-      if Neg then
-         S (Idx) := '-';
-         Idx := Idx - 1;
-      end if;
-      return S (Idx + 1 .. 12);
-   end To_String;
-
-   function To_String (V : Uint32) return String is
-   begin
-      return To_String (Integer (V));
-   end To_String;
-
 
    procedure W5500_HW_Reset is
    begin
@@ -141,12 +99,6 @@ begin
    USART_Driver.Send_Line ("SPI OK");
 
    
-   Config_Analog (PA0);
-   Config_Analog (PA1);
-   Init (ADC_1, Res_12bit, Right, Single);
-   Enable_Temp_Sensor;
-   Enable_Vrefint;
-
    USART_Driver.Send_Line ("Reseteando W5500...");
    W5500_HW_Reset;
    USART_Driver.Send_Line ("Reset OK");
@@ -163,10 +115,20 @@ begin
  
    Check_Link;
 
+  
+ W5500.Set_MAC     (My_MAC);
+ DHCP:=W5500.DHCP_Request;
+   if DHCP.Success then
+      w5500.Set_IP      (DHCP.IP);
+        w5500.Set_Subnet  (DHCP.Subnet);
+        w5500.Set_Gateway (DHCP.Gateway);
+   else
+     
    W5500.Set_Gateway (My_GW);
    W5500.Set_Subnet  (My_SN);
-   W5500.Set_MAC     (My_MAC);
    W5500.Set_IP      (My_IP);
+
+   end if;
    USART_Driver.Send_Line ("Red configurada");
    Verify_Configuration;
 
@@ -232,45 +194,14 @@ begin
    end if;
 
 
-
   mDNS_Announce("ejemplo.local");
+  
 loop
-  mDNS_Announce("ejemplo.local");
-  Temp_Raw := ADC.Read_Temperature;
-   Temp_Int := Temp_Raw / 100;
-      Temp_Dec := abs (Temp_Raw mod 100);
-     USART_Driver.Send_Line ("<h1>"&To_String (Temp_Raw)&"</h1>");
-HTTP_Server_mDNSee
-(
-   80,
-   "ejemplo.local",
-
-   "<script>" &
-   "function actualizarPagina(){location.reload();}" &
-   "setInterval(actualizarPagina,2000);" &
-   "</script>" &
-
-   "<style>" &
-   "body{text-align:center;font-family:Arial;}" &
-   "a{margin:0 10px;padding:4px 10px;" &
-   "text-decoration:none;border:1px solid #ccc;" &
-   "border-radius:4px;color:black;}" &
-   "a:hover{background:#f0f0f0;}" &
-   "</style>" &
-
-   "<h1>Temperatura de ref: " &
-   To_String(Temp_Int) &
-   "." &
-   To_String(Temp_Dec) &
-   " C</h1><br>" &
-
-   "<a href=""/LedOn"">Encender LED</a>" &
-   "<a href=""/LedOff"">Detener LED</a>"
-);
+   HTTP_Server_mDNS (80, "ejemplo.local");
 end loop;
 
  loop
      Next_Time := Clock + Milliseconds (1000);
       delay until Next_Time;
   end loop;
-  end Main;
+end Main;

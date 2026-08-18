@@ -4,6 +4,7 @@
 with Ada.Real_Time; use Ada.Real_Time;
 with SPI_Driver;
 with USART_Driver; use USART_Driver;
+with Shared_Data; use Shared_Data;
 
 package body W5500 is
 
@@ -17,6 +18,7 @@ package body W5500 is
       SPI_Driver.Write_8 (Data);
       SPI_Driver.CS_High;
    end Write_Reg;
+
    procedure Print_Hex (Label : String; Val : Uint8) is
       Hex : constant array (0 .. 15) of Character := "0123456789ABCDEF";
    begin
@@ -142,9 +144,7 @@ package body W5500 is
       Write_Reg (Sn_CR, S0_REG_WR, CR_CLOSE);
    end Socket0_Close;
 
-   -- 
-   --  PING — ICMP Echo via socket IPRAW
-   -- 
+ 
 procedure Socket0_Open_Raw is
    T : Time;
 begin
@@ -172,7 +172,9 @@ procedure Send_Ping_Request (Dest_IP : Uint8_Array; Seq : Uint16) is
    My_MAC  : constant Uint8_Array (1 .. 6) :=
       (16#DE#, 16#AD#, 16#BE#, 16#EF#, 16#FE#, 16#ED#);
    GW_MAC  : constant Uint8_Array (1 .. 6) :=
-      (16#C0#, 16#FD#, 16#84#, 16#D6#, 16#97#, 16#5F#);
+   (16#38#, 16#F8#, 16#89#, 16#18#, 16#47#, 16#a1#);--MAC ROUTER
+
+    --(16#C0#, 16#FD#, 16#84#, 16#D6#, 16#97#, 16#5F#);
    My_IP   : constant Uint8_Array (1 .. 4) :=
       (192, 168, 1, 180);
 
@@ -312,9 +314,9 @@ begin
 
          Print_Hex ("DBG RX bytes: ", Uint8 (Read_Len));
          --  Volcar primeros 40 bytes
-         for I in 1 .. Natural'Min (Read_Len, 40) loop
-            Print_Hex ("DBG[" & Integer'Image (I) & "]: ", Ping_Buffer (I));
-         end loop;
+       --  for I in 1 .. Natural'Min (Read_Len, 40) loop
+       --     Print_Hex ("DBG[" & Integer'Image (I) & "]: ", Ping_Buffer (I));
+        -- end loop;
 
          if Read_Len >= ICMP_TYPE_OFF then
             Print_Hex ("DBG ICMP_TYPE: ", Ping_Buffer (ICMP_TYPE_OFF));
@@ -792,10 +794,90 @@ procedure HTTP_Server_mDNS (Port : Uint16 := 80 ; Hostname:String) is
       "HTTP/1.1 200 OK" & ASCII.CR & ASCII.LF &
       "Content-Type: text/html; charset=utf-8" & ASCII.CR & ASCII.LF &
       "Connection: close" & ASCII.CR & ASCII.LF &
-      "Content-Length: 31" & ASCII.CR & ASCII.LF &
+      "Content-Length: 25" & ASCII.CR & ASCII.LF &
       ASCII.CR & ASCII.LF &
       "<h1>Pagina de prueba</h1>";
    --  Content-Length = 25 chars de <h1>Pagina de prueba</h1>
+   --  Ajusta si cambias el body
+
+   HTML_Buf : Uint8_Array (1 .. HTML'Length);
+   Status   : Uint8;
+   Timeout  : Natural;
+   Got_Data : Boolean;
+
+begin
+   --  Convertir String a Uint8_Array
+   for I in HTML'Range loop
+      HTML_Buf (I - HTML'First + 1) := Character'Pos (HTML (I));
+   end loop;
+
+   USART_Driver.Send_Line ("HTTP: escuchando en puerto " &
+      Integer'Image (Natural (Port)));
+
+   Socket0_Listen (Port);
+
+   --  Esperar conexión entrante (SOCK_ESTABLISHED = 0x17)
+   Timeout := 0;
+   loop
+      Status := Socket0_Status;
+      exit when Status = SOCK_ESTABLISHED;
+      exit when Timeout > 30_000;   -- 30 segundos máximo
+      Timeout := Timeout + 1;
+      mDNS_Loop(Hostname);
+      delay until Clock + Milliseconds (1);
+   end loop;
+
+   if Socket0_Status /= SOCK_ESTABLISHED then
+      USART_Driver.Send_Line ("HTTP: timeout esperando conexion");
+      Socket0_Close;
+      return;
+   end if;
+
+   USART_Driver.Send_Line ("HTTP: cliente conectado");
+
+   Got_Data := False;
+   Timeout  := 0;
+   loop
+      if Socket0_Recv (HTTP_Buffer'Length) > 0 then
+         Got_Data := True;
+         exit;
+      end if;
+  
+      Status := Socket0_Status;
+      exit when Status = SOCK_CLOSE_WAIT;
+      exit when Timeout > 5000;
+      Timeout := Timeout + 1;
+      delay until Clock + Milliseconds (1);
+   end loop;
+
+   if Got_Data then
+   
+      USART_Driver.Send_Line ("HTTP: peticion recibida");
+   end if;
+
+   --  Enviar respuesta
+   Socket0_Send (HTML_Buf);
+   USART_Driver.Send_Line ("HTTP: respuesta enviada");
+
+
+   delay until Clock + Milliseconds (10);
+   Socket0_Close;
+   USART_Driver.Send_Line ("HTTP: conexion cerrada");
+
+end HTTP_Server_mDNS;
+
+
+
+procedure HTTP_Server_mDNSe (Port : Uint16 := 80 ; Hostname:String;Content:String) is
+
+   HTML : constant String :=
+      "HTTP/1.1 200 OK" & ASCII.CR & ASCII.LF &
+      "Content-Type: text/html; charset=utf-8" & ASCII.CR & ASCII.LF &
+      "Connection: close" & ASCII.CR & ASCII.LF &
+      "Content-Length:"& Integer'Image (Content'Length) & ASCII.CR & ASCII.LF &
+      ASCII.CR & ASCII.LF &
+      Content;
+
    --  Ajusta si cambias el body
 
    HTML_Buf : Uint8_Array (1 .. HTML'Length);
@@ -863,8 +945,161 @@ begin
    Socket0_Close;
    USART_Driver.Send_Line ("HTTP: conexion cerrada");
 
-end HTTP_Server_mDNS;
+end HTTP_Server_mDNSe;
 
+procedure HTTP_Server_mDNSee (Port : Uint16 := 80; Hostname : String; Content : String) is
+
+  --extraer path del
+   function Get_HTTP_Path return String is
+      Start_Idx : Natural := 0;
+      End_Idx   : Natural := 0;
+   begin
+
+      --  Buscar "GET "
+      for I in HTTP_Buffer'Range loop
+         if I + 3 <= HTTP_Buffer'Last then
+            if Character'Val (HTTP_Buffer (I))     = 'G' and then
+               Character'Val (HTTP_Buffer (I + 1)) = 'E' and then
+               Character'Val (HTTP_Buffer (I + 2)) = 'T' and then
+               Character'Val (HTTP_Buffer (I + 3)) = ' '
+            then
+               Start_Idx := I + 4;
+               exit;
+            end if;
+         end if;
+      end loop;
+
+      if Start_Idx = 0 then
+         return "/";
+      end if;
+ 
+      --  Buscar " HTTP" desde Start_Idx
+      for I in Start_Idx .. HTTP_Buffer'Last loop
+         if I + 4 <= HTTP_Buffer'Last then
+            if Character'Val (HTTP_Buffer (I))     = ' ' and then
+               Character'Val (HTTP_Buffer (I + 1)) = 'H' and then
+               Character'Val (HTTP_Buffer (I + 2)) = 'T' and then
+               Character'Val (HTTP_Buffer (I + 3)) = 'T' and then
+               Character'Val (HTTP_Buffer (I + 4)) = 'P'
+            then
+               End_Idx := I - 1;
+               exit;
+            end if;
+         end if;
+      end loop;
+
+      if End_Idx = 0 or else End_Idx < Start_Idx then
+         return "/";
+      end if;
+
+      declare
+         Path : String (1 .. End_Idx - Start_Idx + 1);
+      begin
+      
+         for I in Path'Range loop
+            Path (I) := Character'Val (HTTP_Buffer (Start_Idx + I - 1));
+         end loop;
+         return Path;
+      end;
+     
+   end Get_HTTP_Path;
+
+  
+   Status   : Uint8;
+   Timeout  : Natural;
+   Got_Data : Boolean;
+
+begin
+   USART_Driver.Send_Line ("HTTP: escuchando en puerto " &
+      Integer'Image (Natural (Port)));
+   Socket0_Listen (Port);
+--conexion entrante
+   Timeout := 0;
+   loop
+      Status := Socket0_Status;
+      exit when Status = SOCK_ESTABLISHED;
+      exit when Timeout > 30_000;
+      Timeout := Timeout + 1;
+      mDNS_Loop (Hostname);
+      delay until Clock + Milliseconds (1);
+   end loop;
+
+   if Socket0_Status /= SOCK_ESTABLISHED then
+      USART_Driver.Send_Line ("HTTP: timeout esperando conexion");
+      Socket0_Close;
+      return;
+   end if;
+
+   USART_Driver.Send_Line ("HTTP: cliente conectado");
+--esperar peticion cliente
+--  Esperar petición cliente
+Got_Data := False;
+Timeout  := 0;
+loop
+   declare
+      N : Natural := Socket0_Recv (HTTP_Buffer'Length);
+   begin
+      USART_Driver.Send_Line ("Recv bytes: " & Integer'Image (N));  --  <-- añade esto
+      if N > 0 then
+         Got_Data := True;
+         exit;
+      end if;
+   end;
+   Status := Socket0_Status;
+   USART_Driver.Send_Line ("Status: " & Integer'Image (Integer (Status)));  --  <-- y esto
+   exit when Status = SOCK_CLOSE_WAIT;
+   exit when Timeout > 5000;
+   Timeout := Timeout + 1;
+   delay until Clock + Milliseconds (1);
+end loop;
+
+USART_Driver.Send_Line ("Got_Data: " & Boolean'Image (Got_Data));  --  <-- y esto
+if Got_Data then
+   declare
+      Path     : constant String := Get_HTTP_Path;
+   begin
+      USART_Driver.Send_Line ("Path: [" & Path & "]");
+
+      declare
+         Response : constant String:=
+      "HTTP/1.1 200 OK" & ASCII.CR & ASCII.LF &
+      "Content-Type: text/html; charset=utf-8" & ASCII.CR & ASCII.LF &
+      "Connection: close" & ASCII.CR & ASCII.LF &
+      "Content-Length:"& Integer'Image (Content'Length) & ASCII.CR & ASCII.LF &
+      ASCII.CR & ASCII.LF &
+      Content;
+      begin
+         USART_Driver.Send_Line ("Response length: " & Integer'Image (Response'Length));
+
+         declare
+            Resp_Buf : Uint8_Array (1 .. Response'Length);
+         begin
+            USART_Driver.Send_Line ("Buffer declarado OK");
+
+            for I in Response'Range loop
+               Resp_Buf (I - Response'First + 1) := Character'Pos (Response (I));
+            end loop;
+
+            USART_Driver.Send_Line ("Antes del send");
+            Socket0_Send (Resp_Buf);
+            USART_Driver.Send_Line ("Despues del send");
+            if Path = "/LedOn" then 
+            Shared_Data.Counter.Set (1);
+            elsif Path = "/LedOff" then
+            Shared_Data.Counter.Set (0);
+            end if;
+         end;
+      end;
+   end;
+else
+   USART_Driver.Send_Line ("HTTP: sin datos del cliente");
+end if;
+
+   delay until Clock + Milliseconds (10);
+   Socket0_Close;
+   USART_Driver.Send_Line ("HTTP: conexion cerrada");
+
+end HTTP_Server_mDNSee;
 
 
 procedure Socket2_Open_mDNS is
