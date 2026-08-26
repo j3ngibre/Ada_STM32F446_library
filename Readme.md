@@ -1,5 +1,5 @@
 
-# 🚀 Desarrollo de un Sistema IoT en Lenguaje Ada con Fines Didácticos
+#  Framework para el desarrollo de sistemas IoT en Lenguaje Ada para el microcontrolador STM32F446
 
 [![Licencia](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Ada](https://img.shields.io/badge/Language-Ada-ff69b4.svg)](https://www.adacore.com/)
@@ -9,18 +9,18 @@
 
 * [Documentación completa](./docs/Doc.pdf)
 
-## 📄 Resumen del Proyecto
+##  Resumen del Proyecto
 
-Este proyecto presenta el desarrollo de un **sistema IoT utilizando el lenguaje de programación Ada**, diseñado con fines educativos. Basado en el microcontrolador **STM32F446RE**, demuestra que Ada —tradicionalmente utilizado en sistemas críticos y de tiempo real— es una alternativa viable y ventajosa a C/C++ para el desarrollo de sistemas embebidos e IoT.
+Este proyecto presenta el desarrollo de un ** marco de trabajo para le desarrollo  de sistemas IoT utilizando el lenguaje de programación Ada**, diseñado con fines educativos. Basado en el microcontrolador **STM32F446RE**, demuestra que Ada —tradicionalmente utilizado en sistemas críticos y de tiempo real— es una alternativa viable y ventajosa a C/C++ para el desarrollo de sistemas embebidos e IoT.
 
-### 🎯 Objetivos Principales
+###  Objetivos Principales
 
 * Demostrar la viabilidad de Ada para sistemas embebidos e IoT modernos.
 * Crear un entorno de desarrollo accesible para Ada sobre hardware ARM Cortex-M.
 * Desarrollar un marco modular y reutilizable de paquetes de abstracción de hardware.
 * Proporcionar material educativo para la enseñanza de sistemas embebidos y programación en tiempo real.
 
-### 🛠️ Implementación Técnica
+###  Implementación Técnica
 
 El sistema implementa una pila de software completa que incluye:
 
@@ -28,7 +28,7 @@ El sistema implementa una pila de software completa que incluye:
 * **Controladores de dispositivos:** Pantalla OLED SSD1306 y módulo Ethernet W5500.
 * **Servicios de red:** TCP/IP, DHCP, DNS, descubrimiento mDNS y servidor HTTP.
 
-### 💡 ¿Por qué Ada en lugar de C/C++?
+###  ¿Por qué Ada en lugar de C/C++?
 
 | Problemas de C/C++        | Ventajas de Ada                                |
 | ------------------------- | ---------------------------------------------- |
@@ -37,7 +37,7 @@ El sistema implementa una pila de software completa que incluye:
 | Comportamiento indefinido | Verificación estática                          |
 | Concurrencia compleja     | Soporte nativo para tareas (tasking)           |
 
-### 📚 Enfoque Educativo
+###  Enfoque Educativo
 
 El proyecto sirve como un recurso de aprendizaje completo para estudiantes y desarrolladores interesados en:
 
@@ -46,7 +46,7 @@ El proyecto sirve como un recurso de aprendizaje completo para estudiantes y des
 * Desarrollo IoT con lenguajes seguros y fiables.
 * Integración hardware-software.
 
-### 🎯 Resultado
+###  Resultado
 
 Una **plataforma completa, reutilizable y bien documentada** que demuestra la viabilidad del uso de Ada en aplicaciones IoT, sirviendo tanto como sistema funcional como material educativo.
 
